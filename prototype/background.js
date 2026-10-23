@@ -4,12 +4,25 @@
 
 importScripts('shared/irs.js', 'shared/gemini.js');
 
+// Optionally import local config if present
+try {
+  importScripts('config.local.js');
+} catch (e) {
+  // config.local.js is optional
+}
+
+function getLocalConfig() {
+  return (typeof self.ZENBUY_LOCAL_CONFIG !== 'undefined') ? self.ZENBUY_LOCAL_CONFIG : {};
+}
+
 // Initialize defaults on install
 chrome.runtime.onInstalled.addListener(async () => {
-  const data = await chrome.storage.local.get(['hourlyWage', 'savingsGoal', 'vault']);
+  const localCfg = getLocalConfig();
+  const data = await chrome.storage.local.get(['hourlyWage', 'savingsGoal', 'vault', 'geminiApiKey']);
   const updates = {};
-  if (data.hourlyWage === undefined) updates.hourlyWage = 30;
+  if (data.hourlyWage === undefined) updates.hourlyWage = localCfg.HOURLY_WAGE || 30;
   if (data.savingsGoal === undefined) updates.savingsGoal = 'Pay down credit card debt';
+  if (data.geminiApiKey === undefined && localCfg.GEMINI_API_KEY) updates.geminiApiKey = localCfg.GEMINI_API_KEY;
   if (!Array.isArray(data.vault)) updates.vault = [];
   if (Object.keys(updates).length > 0) {
     await chrome.storage.local.set(updates);
@@ -56,8 +69,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function handleEvaluateProduct(payload) {
   const { title, price, category, velocity, darkPatterns, isBnplActive, simulatedHour } = payload;
   const storage = await chrome.storage.local.get(['hourlyWage', 'geminiApiKey']);
-  const hourlyWage = Number(storage.hourlyWage) || 30;
-  const apiKey = storage.geminiApiKey || '';
+  const localCfg = getLocalConfig();
+  const hourlyWage = Number(storage.hourlyWage) || localCfg.HOURLY_WAGE || 30;
+  const apiKey = storage.geminiApiKey || localCfg.GEMINI_API_KEY || '';
 
   // Classify taxonomy score
   const classification = await classifyProductWithGemini(title, category, price, apiKey);
@@ -87,9 +101,10 @@ async function handleEvaluateProduct(payload) {
 async function handleGetSocraticNudge(payload) {
   const { title, price } = payload;
   const storage = await chrome.storage.local.get(['hourlyWage', 'savingsGoal', 'geminiApiKey']);
-  const hourlyWage = Number(storage.hourlyWage) || 30;
+  const localCfg = getLocalConfig();
+  const hourlyWage = Number(storage.hourlyWage) || localCfg.HOURLY_WAGE || 30;
   const savingsGoal = storage.savingsGoal || 'Build savings';
-  const apiKey = storage.geminiApiKey || '';
+  const apiKey = storage.geminiApiKey || localCfg.GEMINI_API_KEY || '';
 
   const nudge = await generateSocraticReflection({
     productTitle: title,
