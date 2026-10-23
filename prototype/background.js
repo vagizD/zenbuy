@@ -4,20 +4,26 @@
 
 importScripts('shared/irs.js', 'shared/gemini.js');
 
-// Optionally import local config if present
-try {
-  importScripts('config.local.js');
-} catch (e) {
-  // config.local.js is optional
-}
+let cachedLocalConfig = null;
 
-function getLocalConfig() {
-  return (typeof self.ZENBUY_LOCAL_CONFIG !== 'undefined') ? self.ZENBUY_LOCAL_CONFIG : {};
+async function getLocalConfig() {
+  if (cachedLocalConfig !== null) return cachedLocalConfig;
+  try {
+    const res = await fetch(chrome.runtime.getURL('config.local.json'));
+    if (res.ok) {
+      cachedLocalConfig = await res.json();
+      return cachedLocalConfig;
+    }
+  } catch (e) {
+    // optional config
+  }
+  cachedLocalConfig = {};
+  return cachedLocalConfig;
 }
 
 // Initialize defaults on install
 chrome.runtime.onInstalled.addListener(async () => {
-  const localCfg = getLocalConfig();
+  const localCfg = await getLocalConfig();
   const data = await chrome.storage.local.get(['hourlyWage', 'savingsGoal', 'vault', 'geminiApiKey']);
   const updates = {};
   if (data.hourlyWage === undefined) updates.hourlyWage = localCfg.HOURLY_WAGE || 30;
@@ -69,7 +75,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function handleEvaluateProduct(payload) {
   const { title, price, category, velocity, darkPatterns, isBnplActive, simulatedHour } = payload;
   const storage = await chrome.storage.local.get(['hourlyWage', 'geminiApiKey']);
-  const localCfg = getLocalConfig();
+  const localCfg = await getLocalConfig();
   const hourlyWage = Number(storage.hourlyWage) || localCfg.HOURLY_WAGE || 30;
   const apiKey = storage.geminiApiKey || localCfg.GEMINI_API_KEY || '';
 
@@ -101,7 +107,7 @@ async function handleEvaluateProduct(payload) {
 async function handleGetSocraticNudge(payload) {
   const { title, price } = payload;
   const storage = await chrome.storage.local.get(['hourlyWage', 'savingsGoal', 'geminiApiKey']);
-  const localCfg = getLocalConfig();
+  const localCfg = await getLocalConfig();
   const hourlyWage = Number(storage.hourlyWage) || localCfg.HOURLY_WAGE || 30;
   const savingsGoal = storage.savingsGoal || 'Build savings';
   const apiKey = storage.geminiApiKey || localCfg.GEMINI_API_KEY || '';
@@ -140,6 +146,7 @@ async function handleSaveToVault(item) {
 
 async function handleGetVaultData() {
   const data = await chrome.storage.local.get(['vault', 'hourlyWage', 'savingsGoal', 'geminiApiKey']);
+  const localCfg = await getLocalConfig();
   const vault = Array.isArray(data.vault) ? data.vault : [];
 
   let totalSaved = 0;
@@ -156,9 +163,9 @@ async function handleGetVaultData() {
     vault,
     totalSaved: totalSaved.toFixed(2),
     totalHours: totalHours.toFixed(1),
-    hourlyWage: data.hourlyWage || 30,
+    hourlyWage: data.hourlyWage || localCfg.HOURLY_WAGE || 30,
     savingsGoal: data.savingsGoal || '',
-    hasApiKey: Boolean(data.geminiApiKey)
+    hasApiKey: Boolean(data.geminiApiKey || localCfg.GEMINI_API_KEY)
   };
 }
 

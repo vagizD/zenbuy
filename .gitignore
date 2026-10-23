@@ -5,3 +5,5 @@ node_modules/
 .env.local
 config.local.js
 prototype/config.local.js
+config.local.json
+prototype/config.local.json
