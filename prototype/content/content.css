@@ -1,0 +1,167 @@
+/* ZenBuy Clean Content Styles */
+
+.zenbuy-wage-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 6px;
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+
+.zenbuy-ice-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 10px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  background-color: #e2e8f0;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.zenbuy-ice-btn:hover {
+  background-color: #cbd5e1;
+}
+
+.zenbuy-ice-btn.zenbuy-saved {
+  background-color: #f8fafc;
+  color: #475569;
+  border-color: #cbd5e1;
+  cursor: default;
+}
+
+/* ZenBuy Intercept Modal */
+.zenbuy-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2147483647;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.zenbuy-modal-card {
+  background: #ffffff;
+  color: #0f172a;
+  width: 90%;
+  max-width: 440px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.zenbuy-modal-header {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.zenbuy-modal-title {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #0f172a;
+  margin-bottom: 12px;
+}
+
+.zenbuy-modal-metrics {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.zenbuy-metric-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.zenbuy-metric-row:last-child {
+  margin-bottom: 0;
+}
+
+.zenbuy-metric-label {
+  color: #64748b;
+}
+
+.zenbuy-metric-val {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.zenbuy-modal-nudge {
+  font-size: 14px;
+  line-height: 1.45;
+  color: #334155;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f1f5f9;
+  border-left: 3px solid #475569;
+  border-radius: 0 4px 4px 0;
+}
+
+.zenbuy-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.zenbuy-btn-primary {
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: #0f172a;
+  border: 1px solid #0f172a;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.zenbuy-btn-primary:hover {
+  background-color: #1e293b;
+}
+
+.zenbuy-btn-secondary {
+  width: 100%;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.zenbuy-btn-secondary:hover {
+  color: #0f172a;
+}

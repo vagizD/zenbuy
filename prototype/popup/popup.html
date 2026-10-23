@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ZenBuy Vault</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <div class="brand">ZenBuy</div>
+    <div class="subbrand">Shopping Guardian</div>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-num" id="stat-saved">$0.00</div>
+      <div class="metric-label">Quarantined / Saved</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-num" id="stat-hours">0.0h</div>
+      <div class="metric-label">Labor Hours Retained</div>
+    </div>
+  </div>
+
+  <div class="section-title">
+    <span>48-Hour Vault</span>
+    <span class="vault-count" id="vault-count">0 items</span>
+  </div>
+
+  <div class="vault-list" id="vault-list">
+    <div class="empty-state">No quarantined purchases yet.</div>
+  </div>
+
+  <div class="settings-toggle" id="toggle-settings">Configuration & Settings</div>
+
+  <div class="settings-panel hidden" id="settings-panel">
+    <div class="form-group">
+      <label for="hourly-wage">Hourly Wage ($)</label>
+      <input type="number" id="hourly-wage" min="1" step="1" value="30">
+    </div>
+
+    <div class="form-group">
+      <label for="savings-goal">Savings Focus / Goal</label>
+      <input type="text" id="savings-goal" placeholder="e.g. Credit card payoff, emergency fund">
+    </div>
+
+    <div class="form-group">
+      <label for="gemini-key">Gemini API Key</label>
+      <input type="password" id="gemini-key" placeholder="Enter Google AI Studio Key">
+    </div>
+
+    <button type="button" class="btn-save" id="save-settings">Save Settings</button>
+    <div class="status-msg hidden" id="status-msg">Settings saved.</div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
