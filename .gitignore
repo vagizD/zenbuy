@@ -3,3 +3,15 @@ node_modules/
 *.log
 .env
 .env.local
+config.local.js
+prototype/config.local.js
+config.local.json
+prototype/config.local.json
+prototype/config/config.local.js
+prototype/config/config.local.json
+*.local.js
+*.local.json
+__pycache__/
+*.py[cod]
+*$py.class
+

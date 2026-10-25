@@ -1,0 +1,397 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 360px;
+  max-height: 580px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
+  background-color: #ffffff;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.header {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.brand {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.subbrand {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.metric-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.metric-card.metric-saved {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.metric-card.metric-saved .metric-num {
+  color: #15803d;
+}
+
+.metric-card.metric-ice {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.metric-card.metric-ice .metric-num {
+  color: #0369a1;
+}
+
+.metric-card.metric-unlocked {
+  background: #fdf4ff;
+  border-color: #f5d0fe;
+}
+
+.metric-card.metric-unlocked .metric-num {
+  color: #7e22ce;
+}
+
+.metric-num {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.metric-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #475569;
+  margin-top: 2px;
+  line-height: 1.1;
+}
+
+.metric-sub {
+  font-size: 9px;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.vault-count {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.vault-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.empty-state {
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: center;
+  padding: 24px 8px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+}
+
+.vault-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.vault-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.vault-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.status-badge.badge-saved {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.status-badge.badge-unlocked {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
+.status-badge.badge-frozen {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.status-badge.badge-ready {
+  background: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fef08a;
+}
+
+.vault-item-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.vault-item-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-saved-pill {
+  width: 100%;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  text-align: center;
+  cursor: default;
+}
+
+.btn-item {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+}
+
+.btn-archive {
+  background: #0f172a;
+  color: #ffffff;
+  border: 1px solid #0f172a;
+}
+
+.btn-archive:hover {
+  background: #1e293b;
+}
+
+.btn-unlock {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-unlock:hover {
+  background: #e2e8f0;
+}
+
+.btn-locked {
+  background: #f8fafc;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  cursor: not-allowed;
+}
+
+.settings-toggle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  padding: 8px 0;
+  border-top: 1px solid #e2e8f0;
+  user-select: none;
+}
+
+.settings-toggle:hover {
+  color: #0f172a;
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.form-group input,
+.form-group select {
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  color: #0f172a;
+  outline: none;
+  background: #ffffff;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #0f172a;
+}
+
+.btn-save {
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  background: #0f172a;
+  border: 1px solid #0f172a;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.btn-save:hover {
+  background: #1e293b;
+}
+
+.status-msg {
+  font-size: 11px;
+  color: #166534;
+  text-align: center;
+}
+
+.vault-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-quick-clear {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-quick-clear:hover {
+  color: #dc2626;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.danger-zone {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.danger-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.btn-clear-vault {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-clear-vault:hover {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.danger-hint {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 4px;
+  text-align: center;
+  line-height: 1.2;
+}

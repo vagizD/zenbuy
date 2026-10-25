@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "ZenBuy",
+  "version": "1.0.0",
+  "description": "Smart Wishlist and Impulse Shopping Interceptor",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "ZenBuy Vault"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.amazon.com/*",
+        "*://*.amazon.co.uk/*",
+        "*://*.target.com/*",
+        "*://*.walmart.com/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "file:///*"
+      ],
+      "js": [
+        "config/config.js",
+        "engine/irs.js",
+        "adapters/amazon.js",
+        "adapters/sandbox.js",
+        "adapters/fallback.js",
+        "adapters/registry.js",
+        "content/content.js"
+      ],
+      "css": [
+        "content/content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}
