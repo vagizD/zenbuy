@@ -12,19 +12,29 @@
   </div>
 
   <div class="metrics-grid">
-    <div class="metric-card">
+    <div class="metric-card metric-saved">
       <div class="metric-num" id="stat-saved">$0.00</div>
-      <div class="metric-label">Quarantined / Saved</div>
+      <div class="metric-label">Saved (Averted)</div>
+      <div class="metric-sub" id="stat-hours">0.0h labor saved</div>
     </div>
-    <div class="metric-card">
-      <div class="metric-num" id="stat-hours">0.0h</div>
-      <div class="metric-label">Labor Hours Retained</div>
+    <div class="metric-card metric-ice">
+      <div class="metric-num" id="stat-ice">$0.00</div>
+      <div class="metric-label">On Ice (Pending)</div>
+      <div class="metric-sub" id="stat-ice-count">0 items cooling</div>
+    </div>
+    <div class="metric-card metric-unlocked">
+      <div class="metric-num" id="stat-unlocked">$0.00</div>
+      <div class="metric-label">Unlocked (Purchased)</div>
+      <div class="metric-sub" id="stat-unlocked-count">0 deliberate</div>
     </div>
   </div>
 
   <div class="section-title">
-    <span>48-Hour Vault</span>
-    <span class="vault-count" id="vault-count">0 items</span>
+    <span id="vault-title">48-Hour Vault</span>
+    <div class="vault-header-right">
+      <span class="vault-count" id="vault-count">0 items</span>
+      <button type="button" class="btn-quick-clear" id="quick-clear-vault" title="Clear vault for testing">Clear</button>
+    </div>
   </div>
 
   <div class="vault-list" id="vault-list">
@@ -45,12 +55,29 @@
     </div>
 
     <div class="form-group">
+      <label for="cooldown-duration">Vault Cooldown (Testing/Prod)</label>
+      <select id="cooldown-duration">
+        <option value="5">5 seconds (Rapid test)</option>
+        <option value="30">30 seconds (Test)</option>
+        <option value="60">1 minute (Test)</option>
+        <option value="86400">24 hours</option>
+        <option value="172800">48 hours (Default)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
       <label for="gemini-key">Gemini API Key</label>
       <input type="password" id="gemini-key" placeholder="Enter Google AI Studio Key">
     </div>
 
     <button type="button" class="btn-save" id="save-settings">Save Settings</button>
     <div class="status-msg hidden" id="status-msg">Settings saved.</div>
+
+    <div class="danger-zone">
+      <div class="danger-title">Testing Controls</div>
+      <button type="button" class="btn-clear-vault" id="clear-vault-btn">🗑️ Clear Vault & Reset Items</button>
+      <div class="danger-hint">Wipes quarantined items and resets metrics for rapid testing.</div>
+    </div>
   </div>
 
   <script src="popup.js"></script>

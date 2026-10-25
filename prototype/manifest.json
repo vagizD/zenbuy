@@ -29,7 +29,12 @@
         "file:///*"
       ],
       "js": [
-        "shared/irs.js",
+        "config/config.js",
+        "engine/irs.js",
+        "adapters/amazon.js",
+        "adapters/sandbox.js",
+        "adapters/fallback.js",
+        "adapters/registry.js",
         "content/content.js"
       ],
       "css": [

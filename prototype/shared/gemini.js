@@ -1,16 +1,18 @@
 /**
- * ZenBuy Gemini API Integration
- * Handles Tier 1 product triage and Tier 2 Socratic copy generation.
+ * ZenBuy Gemini AI Integration
+ * All model parameters, prompts, and options are controlled via ZENBUY_CONFIG.
  */
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+// Memory cache for product classifications to avoid duplicate API calls
+const taxonomyCache = new Map();
 
-async function callGemini(prompt, systemInstruction, apiKey, jsonMode = false) {
+async function callGeminiApi(prompt, systemInstruction, config, jsonMode = false) {
+  const apiKey = config.apiKey;
   if (!apiKey) {
-    throw new Error('Missing Gemini API key');
+    throw new Error('Gemini API key is not configured');
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${apiKey}`;
 
   const body = {
     contents: [
@@ -19,11 +21,17 @@ async function callGemini(prompt, systemInstruction, apiKey, jsonMode = false) {
       }
     ],
     generationConfig: {
-      temperature: 0.35,
-      maxOutputTokens: jsonMode ? 200 : 120,
+      temperature: config.temperature,
+      maxOutputTokens: config.maxOutputTokens,
       topP: 0.85
     }
   };
+
+  if (config.thinkingBudget !== undefined) {
+    body.generationConfig.thinkingConfig = {
+      thinkingBudget: config.thinkingBudget
+    };
+  }
 
   if (systemInstruction) {
     body.systemInstruction = {
@@ -58,100 +66,80 @@ async function callGemini(prompt, systemInstruction, apiKey, jsonMode = false) {
 }
 
 /**
- * Tier 1: Classifies product into hedonic vs utilitarian index (0-100)
+ * Tier 1: Classifies product into necessity vs hedonic want index (0 to 100)
+ * Controlled entirely by config.gemini.triage.
  */
-async function classifyProductWithGemini(productTitle, category, price, apiKey) {
-  if (!apiKey) {
-    return fallbackClassification(productTitle, price);
+async function classifyProductWithGemini(productTitle, category, price, geminiConfig) {
+  const cacheKey = `${productTitle}_${price}`.toLowerCase();
+  if (taxonomyCache.has(cacheKey)) {
+    return taxonomyCache.get(cacheKey);
   }
 
-  const systemInstruction = `You are an e-commerce taxonomy classifier for consumer impulse spending evaluation.
-Respond strictly in JSON format matching this schema:
-{
-  "classification": "ESSENTIAL_STAPLE" | "PRACTICAL_REPLACEMENT" | "HEDONIC_WANT" | "VIRAL_TREND",
-  "hedonicScore": number, // 0 to 100
-  "confidence": number // 0.0 to 1.0
-}
-Score guidelines:
-- Essential/Staples/Medical: 0-15
-- Practical tools/replacements: 20-40
-- Discretionary wants: 50-75
-- Hedonic luxury/novelty/fads: 76-100`;
+  const triageCfg = {
+    ...geminiConfig.triage,
+    model: geminiConfig.model,
+    apiKey: geminiConfig.apiKey
+  };
 
   const prompt = `Classify this product:
 Title: "${productTitle}"
 Category: "${category || 'General'}"
 Price: $${price}`;
 
-  try {
-    const text = await callGemini(prompt, systemInstruction, apiKey, true);
-    return JSON.parse(text);
-  } catch (err) {
-    console.warn('Gemini triage fallback triggered:', err);
-    return fallbackClassification(productTitle, price);
-  }
+  const text = await callGeminiApi(prompt, triageCfg.systemInstruction, triageCfg, true);
+  const result = JSON.parse(text);
+
+  // Normalize structure
+  const classification = {
+    classification: result.classification || 'HEDONIC_WANT',
+    hedonicScore: typeof result.hedonicScore === 'number' ? result.hedonicScore : 65,
+    confidence: typeof result.confidence === 'number' ? result.confidence : 0.8,
+    categoryBaselinePrice: typeof result.categoryBaselinePrice === 'number' ? result.categoryBaselinePrice : null,
+    luxuryMultiplier: typeof result.luxuryMultiplier === 'number' ? result.luxuryMultiplier : null,
+    reasoning: result.reasoning || ''
+  };
+
+  taxonomyCache.set(cacheKey, classification);
+  return classification;
 }
 
 /**
  * Tier 2: Socratic copy generator
+ * Controlled entirely by config.gemini.socratic.
  */
-async function generateSocraticReflection(params) {
-  const { productTitle, price, hourlyWage, savingsGoal, apiKey } = params;
-  const hours = hourlyWage > 0 ? (price / hourlyWage).toFixed(1) : (price / 25).toFixed(1);
+async function generateSocraticReflection(params, geminiConfig) {
+  const { productTitle, price, hourlyWage, savingsGoal, categoryBaselinePrice, luxuryMultiplier } = params;
+  const hours = hourlyWage > 0 ? (price / hourlyWage).toFixed(1) : (price / 30).toFixed(1);
+  const monthlySalary = hourlyWage > 0 ? (hourlyWage * 160) : 4800;
+  const monthlyPercent = ((price / monthlySalary) * 100).toFixed(0);
 
-  if (!apiKey) {
-    return `This purchase represents ${hours} hours of your working day. Freeze this in your 48-hour vault to confirm if it still serves your long-term goals.`;
+  if (!geminiConfig.apiKey) {
+    const alternativeNote = categoryBaselinePrice ? ` when functional alternatives are ~$${categoryBaselinePrice}` : '';
+    return `This purchase represents ${hours} hours of your workday (${monthlyPercent}% of monthly income)${alternativeNote}. Placing it in your 48-hour vault keeps you aligned with your goal to ${savingsGoal || 'build savings'}.`;
   }
 
-  const systemInstruction = `You are ZenBuy, a calm, non-judgmental financial alter-ego.
-Reframe purchase desires into labor hours and long-term financial freedom.
-Never shame or scold. Acknowledge the desire, present the trade-off, and recommend a 48h vault freeze.
-Strictly 2 concise sentences. Do not use emojis or exclamation marks.`;
+  const socraticCfg = {
+    ...geminiConfig.socratic,
+    model: geminiConfig.model,
+    apiKey: geminiConfig.apiKey
+  };
+
+  const luxuryContext = luxuryMultiplier && luxuryMultiplier > 1.5
+    ? `Standard functional alternatives in this category cost around $${categoryBaselinePrice} (making this a ${luxuryMultiplier.toFixed(1)}x luxury premium).`
+    : '';
 
   const prompt = `The user is considering purchasing "${productTitle}" for $${price}.
-Their hourly wage is $${hourlyWage} (representing approximately ${hours} hours of labor).
-Their stated financial focus is: "${savingsGoal || 'Build personal financial freedom'}".
+Their hourly wage is $${hourlyWage} (representing approximately ${hours} hours of labor, or ${monthlyPercent}% of their monthly income).
+${luxuryContext}
+Their stated financial focus is: "${savingsGoal || 'Build personal savings'}".
 Generate the 2-sentence reality check.`;
 
-  try {
-    return await callGemini(prompt, systemInstruction, apiKey, false);
-  } catch (err) {
-    console.warn('Gemini Socratic fallback triggered:', err);
-    return `This purchase represents ${hours} hours of your working day. Freeze this in your 48-hour vault to confirm if it still serves your long-term goals.`;
-  }
-}
-
-function fallbackClassification(title, price) {
-  const lower = (title || '').toLowerCase();
-
-  // Basic heuristic keyword check
-  const essentials = ['diaper', 'baby', 'soap', 'milk', 'bread', 'cable', 'battery', 'medicine', 'prescription'];
-  const hedonic = ['mechanical keyboard', 'rgb', 'gaming', 'perfume', 'luxury', 'drone', 'watch', 'sunglasses'];
-
-  for (const word of essentials) {
-    if (lower.includes(word)) {
-      return { classification: 'ESSENTIAL_STAPLE', hedonicScore: 10, confidence: 0.8 };
-    }
-  }
-
-  for (const word of hedonic) {
-    if (lower.includes(word)) {
-      return { classification: 'HEDONIC_WANT', hedonicScore: 85, confidence: 0.85 };
-    }
-  }
-
-  const hedonicScore = price > 100 ? 75 : 55;
-  return {
-    classification: 'HEDONIC_WANT',
-    hedonicScore,
-    confidence: 0.7
-  };
+  return await callGeminiApi(prompt, socraticCfg.systemInstruction, socraticCfg, false);
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     classifyProductWithGemini,
-    generateSocraticReflection,
-    fallbackClassification
+    generateSocraticReflection
   };
 }
