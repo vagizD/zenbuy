@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Confirmed · ZenBuy Sandbox</title>
+  <link rel="stylesheet" href="store.css">
+  <script src="store.js" defer></script>
+  <script defer>document.addEventListener('DOMContentLoaded', () => ZenBuySandboxStore.renderConfirmationPage());</script>
+</head>
+<body data-zenbuy-platform="sandbox" data-zenbuy-page="confirmation">
+  <main class="store-shell">
+    <header class="store-header">
+      <div><div class="store-brand">Zen<span>Buy</span> Sandbox Store</div><div class="store-caption">Deterministic order confirmation</div></div>
+      <div class="store-tag">Step 3 of 3</div>
+    </header>
+    <section class="store-card status-card" id="sandbox-confirmation" data-zenbuy-order-confirmation>
+      <div class="status-icon">✓</div>
+      <h1>Your sandbox order is confirmed</h1>
+      <p>Confirmation <strong id="confirmation-order-id"></strong>. Refreshing this page represents the same order and must not create another purchase event.</p>
+      <article class="order-item" id="purchased-item" data-zenbuy-purchased-item>
+        <span class="order-item-title" id="purchased-item-title" data-zenbuy-purchased-title></span>
+        <span class="order-item-price" id="purchased-item-price"></span>
+      </article>
+      <p class="page-note">This is the only sandbox page whose adapter returns purchase confirmation data.</p>
+      <a class="back-link" id="back-to-product" href="index.html">← Return to product</a>
+    </section>
+  </main>
+</body>
+</html>

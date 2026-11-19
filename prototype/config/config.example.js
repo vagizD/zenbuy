@@ -1,6 +1,8 @@
 // ZenBuy Local Configuration Template
 // Copy this file to `config.local.js` to set your Gemini API key and local preferences.
-// `config.local.js` is ignored by git and will never be committed.
+// `config.local.js` is ignored by git and must never be committed or distributed.
+// For a public extension, use a server-side Gemini proxy instead; any key inside
+// a shipped extension can be extracted by its users.
 
 const ZENBUY_LOCAL_CONFIG = {
   gemini: {

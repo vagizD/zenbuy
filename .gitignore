@@ -1,5 +1,6 @@
 .DS_Store
 node_modules/
+.venv/
 *.log
 .env
 .env.local
@@ -14,4 +15,3 @@ prototype/config/config.local.json
 __pycache__/
 *.py[cod]
 *$py.class
-

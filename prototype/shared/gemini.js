@@ -6,6 +6,22 @@
 // Memory cache for product classifications to avoid duplicate API calls
 const taxonomyCache = new Map();
 
+function defaultSocraticReflection(hours, monthlyPercent, savingsGoal) {
+  const goal = String(savingsGoal || 'build savings').trim().slice(0, 60);
+  return `This purchase is ${hours} hours of work (${monthlyPercent}% of monthly income). Does it support your goal to ${goal}?`;
+}
+
+function normalizeSocraticReflection(text, fallback) {
+  const concise = String(text || '').replace(/\s+/g, ' ').trim();
+  const wordCount = concise ? concise.split(' ').length : 0;
+  const sentenceCount = (concise.match(/[.!?](?:\s|$)/g) || []).length;
+
+  // Model output is optional polish, never permission to make the reflection
+  // card wordy. A predictable fallback keeps the important message scannable.
+  if (wordCount < 8 || wordCount > 40 || sentenceCount !== 2) return fallback;
+  return concise;
+}
+
 async function callGeminiApi(prompt, systemInstruction, config, jsonMode = false) {
   const apiKey = config.apiKey;
   if (!apiKey) {
@@ -112,10 +128,10 @@ async function generateSocraticReflection(params, geminiConfig) {
   const hours = hourlyWage > 0 ? (price / hourlyWage).toFixed(1) : (price / 30).toFixed(1);
   const monthlySalary = hourlyWage > 0 ? (hourlyWage * 160) : 4800;
   const monthlyPercent = ((price / monthlySalary) * 100).toFixed(0);
+  const fallback = defaultSocraticReflection(hours, monthlyPercent, savingsGoal);
 
   if (!geminiConfig.apiKey) {
-    const alternativeNote = categoryBaselinePrice ? ` when functional alternatives are ~$${categoryBaselinePrice}` : '';
-    return `This purchase represents ${hours} hours of your workday (${monthlyPercent}% of monthly income)${alternativeNote}. Placing it in your 48-hour vault keeps you aligned with your goal to ${savingsGoal || 'build savings'}.`;
+    return fallback;
   }
 
   const socraticCfg = {
@@ -134,12 +150,14 @@ ${luxuryContext}
 Their stated financial focus is: "${savingsGoal || 'Build personal savings'}".
 Generate the 2-sentence reality check.`;
 
-  return await callGeminiApi(prompt, socraticCfg.systemInstruction, socraticCfg, false);
+  const generated = await callGeminiApi(prompt, socraticCfg.systemInstruction, socraticCfg, false);
+  return normalizeSocraticReflection(generated, fallback);
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     classifyProductWithGemini,
-    generateSocraticReflection
+    generateSocraticReflection,
+    normalizeSocraticReflection
   };
 }

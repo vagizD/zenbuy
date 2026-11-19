@@ -11,6 +11,14 @@ var AmazonAdapter = {
     return /amazon\.(com|co\.uk|de|fr|es|it|ca|co\.jp)/i.test(host);
   },
 
+  getPageKind() {
+    const path = window.location.pathname || '';
+    if (/\/(?:gp\/buy\/thankyou|checkout\/thankyou|thankyou)/i.test(path)) {
+      return 'ORDER_CONFIRMATION';
+    }
+    return document.querySelector('#productTitle, #title') ? 'PRODUCT' : 'OTHER';
+  },
+
   scrapeProduct() {
     let title = '';
     let price = null;
@@ -49,7 +57,11 @@ var AmazonAdapter = {
       category = breadcrumb.innerText.replace(/\s+/g, ' ').trim();
     }
 
-    return title && price ? { title, price, image, category } : null;
+    const asinMatch = (window.location.pathname || '').match(/\/(?:dp|product|d)\/([A-Z0-9]{10})/i) ||
+      (window.location.search || '').match(/asin=([A-Z0-9]{10})/i);
+    const asin = asinMatch?.[1]?.toUpperCase() || '';
+
+    return title && price ? { title, price, image, category, asin, url: window.location.href } : null;
   },
 
   getPriceElement() {
@@ -60,6 +72,60 @@ var AmazonAdapter = {
            document.querySelector('#priceblock_ourprice') ||
            document.querySelector('#price_inside_buybox') ||
            document.querySelector('.a-price');
+  },
+
+  /**
+   * Returns products from a confirmed Amazon order page only. This intentionally
+   * does not treat cart, checkout, or Buy Now clicks as purchase evidence.
+   */
+  getPurchaseConfirmation() {
+    if (this.getPageKind() !== 'ORDER_CONFIRMATION') return null;
+
+    const confirmationText = [
+      document.querySelector('#thank-you-message')?.innerText,
+      document.querySelector('#orderDetails h1, #orderDetailsContainer h1, h1')?.innerText,
+      document.body?.innerText
+    ].filter(Boolean).join(' ');
+
+    if (!/order (has been )?placed|thank you.{0,80}order/i.test(confirmationText)) return null;
+
+    const detailRoots = document.querySelectorAll(
+      '#orderDetails, #orderDetailsContainer, #order-details, .order-details, [data-testid="order-details"]'
+    );
+    const roots = detailRoots.length ? Array.from(detailRoots) : [document];
+    const seen = new Set();
+    const purchases = [];
+
+    roots.forEach(root => {
+      root.querySelectorAll('a[href*="/dp/"]').forEach(link => {
+        const url = link.href || '';
+        const asinMatch = url.match(/\/(?:dp|product|d)\/([A-Z0-9]{10})/i);
+        const asin = asinMatch?.[1]?.toUpperCase();
+        if (!asin || seen.has(asin)) return;
+
+        const title = (link.textContent || link.querySelector('img')?.alt || '').replace(/\s+/g, ' ').trim();
+        if (!title) return;
+        seen.add(asin);
+        purchases.push({ title, url, asin });
+      });
+    });
+
+    if (!purchases.length) return null;
+
+    const orderNumberText = [
+      document.querySelector('#order-number')?.textContent,
+      document.querySelector('[data-testid="order-number"]')?.textContent,
+      document.querySelector('.order-number')?.textContent,
+      confirmationText
+    ].filter(Boolean).join(' ');
+    const orderNumber = orderNumberText.match(/(?:order\s*(?:number|#)?\s*:?\s*)([0-9-]{8,})/i)?.[1] ||
+      new URLSearchParams(window.location.search).get('orderID') || '';
+
+    return {
+      confirmationId: `amazon:${orderNumber || window.location.href}`,
+      source: 'AMAZON_ORDER_CONFIRMATION',
+      purchases
+    };
   },
 
   getCartButtons() {

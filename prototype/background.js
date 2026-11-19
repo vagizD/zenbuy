@@ -11,7 +11,50 @@ try {
   // config.local.js is optional
 }
 
-importScripts('engine/irs.js', 'shared/gemini.js');
+importScripts('engine/irs.js', 'engine/vault_lifecycle.js', 'shared/gemini.js');
+
+const LIFECYCLE_STORAGE_KEY = 'zenbuyLifecycleState';
+const LIFECYCLE_MIGRATION_KEY = 'zenbuyLifecycleMigrationV1';
+const LEGACY_VAULT_STORAGE_KEY = 'vault';
+
+function lifecycle() {
+  if (typeof ZenBuyVaultLifecycle === 'undefined') {
+    throw new Error('ZenBuy vault lifecycle is unavailable.');
+  }
+  return ZenBuyVaultLifecycle;
+}
+
+async function ensureLifecycleState() {
+  const data = await chrome.storage.local.get([LIFECYCLE_STORAGE_KEY, LIFECYCLE_MIGRATION_KEY]);
+  const engine = lifecycle();
+
+  // The prototype stored its old vault as a mixed-status array. This is an
+  // intentional clean break: requested legacy records are removed instead of
+  // guessing state transitions from incomplete data.
+  if (!data[LIFECYCLE_MIGRATION_KEY]) {
+    const state = engine.createEmptyState();
+    await chrome.storage.local.set({
+      [LIFECYCLE_STORAGE_KEY]: state,
+      [LIFECYCLE_MIGRATION_KEY]: true
+    });
+    await chrome.storage.local.remove(LEGACY_VAULT_STORAGE_KEY);
+    return state;
+  }
+
+  const state = engine.normalizeState(data[LIFECYCLE_STORAGE_KEY]);
+  return state;
+}
+
+async function loadLifecycleState({ reconcile = true } = {}) {
+  const state = await ensureLifecycleState();
+  const expired = reconcile ? lifecycle().reconcileExpiredItems(state) : [];
+  if (expired.length > 0) await saveLifecycleState(state);
+  return state;
+}
+
+async function saveLifecycleState(state) {
+  await chrome.storage.local.set({ [LIFECYCLE_STORAGE_KEY]: state });
+}
 
 function getRuntimeConfig() {
   const base = JSON.parse(JSON.stringify(ZENBUY_CONFIG));
@@ -32,15 +75,19 @@ function getRuntimeConfig() {
 // Initialize defaults on install
 chrome.runtime.onInstalled.addListener(async () => {
   const config = getRuntimeConfig();
-  const data = await chrome.storage.local.get(['hourlyWage', 'savingsGoal', 'vault', 'geminiApiKey']);
+  const data = await chrome.storage.local.get(['hourlyWage', 'savingsGoal']);
   const updates = {};
   if (data.hourlyWage === undefined) updates.hourlyWage = config.userDefaults.hourlyWage;
   if (data.savingsGoal === undefined) updates.savingsGoal = config.userDefaults.savingsGoal;
-  if (data.geminiApiKey === undefined && config.gemini.apiKey) updates.geminiApiKey = config.gemini.apiKey;
-  if (!Array.isArray(data.vault)) updates.vault = [];
   if (Object.keys(updates).length > 0) {
     await chrome.storage.local.set(updates);
   }
+
+  await ensureLifecycleState();
+
+  // Older versions exposed this through the settings UI. The runtime now uses
+  // only the developer-owned local config, so remove the legacy stored copy.
+  await chrome.storage.local.remove('geminiApiKey');
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -79,6 +126,41 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.type === 'ARCHIVE_ITEM') {
+    handleArchiveItem(request.payload).then(sendResponse).catch(err => {
+      sendResponse({ error: err.message });
+    });
+    return true;
+  }
+
+  if (request.type === 'CANCEL_PUT_ON_ICE') {
+    handleCancelPutOnIce(request.payload).then(sendResponse).catch(err => {
+      sendResponse({ error: err.message });
+    });
+    return true;
+  }
+
+  if (request.type === 'CONTINUE_TO_PURCHASE') {
+    handleContinueToPurchase(request.payload).then(sendResponse).catch(err => {
+      sendResponse({ error: err.message });
+    });
+    return true;
+  }
+
+  if (request.type === 'REICE_ITEM') {
+    handleReiceItem(request.payload).then(sendResponse).catch(err => {
+      sendResponse({ error: err.message });
+    });
+    return true;
+  }
+
+  if (request.type === 'RECORD_PURCHASE_CONFIRMATION') {
+    handleRecordPurchaseConfirmation(request.payload).then(sendResponse).catch(err => {
+      sendResponse({ error: err.message });
+    });
+    return true;
+  }
+
   if (request.type === 'CHECK_VAULT_ITEM') {
     handleCheckVaultItem(request.payload).then(sendResponse).catch(err => {
       sendResponse({ error: err.message });
@@ -94,89 +176,73 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-function extractProductKey(url, title) {
-  if (url) {
-    try {
-      const u = new URL(url);
-      const asinMatch = u.pathname.match(/(?:dp|product|d)\/([A-Z0-9]{10})/i) ||
-                        u.search.match(/asin=([A-Z0-9]{10})/i);
-      if (asinMatch) {
-        return `asin_${asinMatch[1].toUpperCase()}`;
-      }
-    } catch (e) {}
-  }
-  if (title) {
-    return `title_${title.trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40)}`;
-  }
-  if (url) {
-    try {
-      const u = new URL(url);
-      return `${u.origin}${u.pathname.replace(/\/$/, '')}`;
-    } catch (e) {}
-  }
-  return null;
+const CLASSIFICATION_CACHE_KEY = 'zenbuyTaxonomyCache';
+const CLASSIFICATION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const CLASSIFICATION_CACHE_LIMIT = 75;
+
+function getClassificationCacheId(title, category, price) {
+  return [title, category, Number(price).toFixed(2)]
+    .map(value => String(value || '').trim().toLowerCase().replace(/\s+/g, ' '))
+    .join('|');
 }
 
-function areSameProduct(itemA, itemB) {
-  if (!itemA || !itemB) return false;
-  const keyA = extractProductKey(itemA.url, itemA.title);
-  const keyB = extractProductKey(itemB.url, itemB.title);
-  if (keyA && keyB && keyA === keyB) return true;
+async function getCachedClassification(cacheId) {
+  const { [CLASSIFICATION_CACHE_KEY]: rawCache = {} } = await chrome.storage.local.get(CLASSIFICATION_CACHE_KEY);
+  const cache = rawCache && typeof rawCache === 'object' ? rawCache : {};
+  const entry = cache[cacheId];
 
-  if (itemA.title && itemB.title) {
-    const tA = itemA.title.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    const tB = itemB.title.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (tA === tB) return true;
-    const len = Math.min(20, tA.length, tB.length);
-    if (len >= 12 && tA.slice(0, len) === tB.slice(0, len)) {
-      return true;
-    }
+  if (!entry || !entry.classification || (Date.now() - entry.createdAt) > CLASSIFICATION_CACHE_TTL_MS) {
+    return null;
   }
-  return false;
+
+  return entry.classification;
 }
 
-function deduplicateVault(vault) {
-  if (!Array.isArray(vault)) return [];
-  const seen = new Set();
-  const deduped = [];
+async function cacheClassification(cacheId, classification) {
+  const { [CLASSIFICATION_CACHE_KEY]: rawCache = {} } = await chrome.storage.local.get(CLASSIFICATION_CACHE_KEY);
+  const cache = rawCache && typeof rawCache === 'object' ? rawCache : {};
+  const now = Date.now();
 
-  for (const item of vault) {
-    const key = extractProductKey(item.url, item.title) || item.id;
-    if (!seen.has(key)) {
-      seen.add(key);
-      deduped.push(item);
-    }
-  }
-  return deduped;
+  cache[cacheId] = { classification, createdAt: now };
+
+  const entries = Object.entries(cache)
+    .filter(([, entry]) => entry && entry.createdAt && now - entry.createdAt <= CLASSIFICATION_CACHE_TTL_MS)
+    .sort(([, a], [, b]) => b.createdAt - a.createdAt)
+    .slice(0, CLASSIFICATION_CACHE_LIMIT);
+
+  await chrome.storage.local.set({ [CLASSIFICATION_CACHE_KEY]: Object.fromEntries(entries) });
 }
 
 async function handleCheckVaultItem(payload) {
-  const { url, title } = payload || {};
-  const { vault = [] } = await chrome.storage.local.get('vault');
+  const itemQuery = payload || {};
+  const state = await loadLifecycleState();
   const now = Date.now();
-
-  const match = vault.find(item => areSameProduct(item, { url, title }));
+  const match = lifecycle().findItem(state, itemQuery);
   if (!match) return { found: false };
 
-  const remainingMs = Math.max(0, match.expiresAt - now);
-  const isCooldownExpired = remainingMs === 0;
+  const remainingMs = match.poi.state === lifecycle().POI_STATE.ACTIVE
+    ? Math.max(0, (match.poi.expiresAt || now) - now)
+    : 0;
 
   return {
     found: true,
     item: match,
-    status: match.status,
+    poiState: match.poi.state,
+    location: match.location,
+    purchaseState: match.purchase.state,
     remainingMs,
-    isCooldownExpired
+    isCooldownExpired: match.poi.state === lifecycle().POI_STATE.EXPIRED,
+    isFrozen: match.poi.state === lifecycle().POI_STATE.ACTIVE && match.location === lifecycle().COLLECTION.VAULT
   };
 }
 
 async function handleEvaluateProduct(payload) {
   const { title, price, category, velocity, darkPatterns, isBnplActive, simulatedHour } = payload;
   const config = getRuntimeConfig();
-  const storage = await chrome.storage.local.get(['hourlyWage', 'geminiApiKey', 'cooldownDurationSeconds']);
+  const storage = await chrome.storage.local.get(['hourlyWage', 'cooldownDurationSeconds']);
   
   const hourlyWage = Number(storage.hourlyWage) || config.userDefaults.hourlyWage || 30;
-  const apiKey = storage.geminiApiKey || config.gemini.apiKey || '';
+  const apiKey = config.gemini.apiKey || '';
   const cooldownDurationSeconds = storage.cooldownDurationSeconds !== undefined
     ? Number(storage.cooldownDurationSeconds)
     : (config.vault?.cooldownDurationSeconds || (48 * 60 * 60));
@@ -189,8 +255,18 @@ async function handleEvaluateProduct(payload) {
   // AI-driven taxonomy & necessity classification
   let classification = { classification: 'HEDONIC_WANT', hedonicScore: 70, confidence: 0.8 };
   if (apiKey) {
+    const cacheId = getClassificationCacheId(title, category, price);
     try {
-      classification = await classifyProductWithGemini(title, category, price, effectiveGeminiConfig);
+      const cachedClassification = await getCachedClassification(cacheId);
+      if (cachedClassification) {
+        classification = cachedClassification;
+      } else {
+        classification = await classifyProductWithGemini(title, category, price, effectiveGeminiConfig);
+        // Keep repeated visits to the same product out of the network path.
+        await cacheClassification(cacheId, classification).catch(err => {
+          console.warn('Unable to save Gemini classification cache:', err);
+        });
+      }
     } catch (err) {
       console.warn('Gemini classification error, using fallback score:', err);
     }
@@ -201,7 +277,7 @@ async function handleEvaluateProduct(payload) {
   const evalHour = simulatedHour !== undefined ? simulatedHour : new Date().getHours();
 
   // Compute IRS using the modular calculation engine
-  const irsResult = evaluateIRS({
+  const irsResult = ZenBuyCurrentIRSEngine.evaluate({
     taxonomyScore,
     velocity,
     localHour: evalHour,
@@ -209,11 +285,12 @@ async function handleEvaluateProduct(payload) {
     price,
     hourlyWage,
     isBnplActive
-  }, config.irs);
+  });
 
   const hoursOfWork = (price / hourlyWage).toFixed(1);
-  const weights = irsResult.weights || config.irs.weights;
-  const thresholds = config.irs.thresholds;
+  const irsDefinition = ZenBuyCurrentIRSEngine.getDefinition();
+  const weights = irsResult.weights || irsDefinition.weights;
+  const thresholds = irsDefinition.thresholds;
 
   const taxonomyDetails = classification.luxuryMultiplier && classification.luxuryMultiplier > 1.2
     ? `${classification.classification} (Hedonic: ${taxonomyScore}/100, ${classification.luxuryMultiplier.toFixed(1)}x category baseline)`
@@ -290,22 +367,37 @@ function getCircadianLabel(hour) {
 
 function formatDarkPatternsList(dp) {
   if (!dp) return 'None detected';
-  const detected = [];
-  if (dp.lowStockAmbiguity) detected.push('Low Stock / Scarcity');
-  if (dp.deceptiveUrgency) detected.push('Countdown / Urgency');
-  if (dp.fabricatedSocialProof) detected.push('Social Proof Pressure');
-  if (dp.preselection) detected.push('Preselected Add-ons');
-  return detected.length ? detected.join(', ') : 'None detected';
+  const rules = [
+    ['lowStockAmbiguity', 'Low stock / scarcity'],
+    ['deceptiveUrgency', 'Countdown / urgency'],
+    ['fabricatedSocialProof', 'Social-proof pressure'],
+    ['preselection', 'Preselected add-ons']
+  ];
+  const lines = rules.map(([key, label]) => {
+    const evidence = dp.evidence?.[key];
+    const matches = Array.isArray(evidence?.matches) ? evidence.matches : [];
+    const excerpts = matches
+      .map(match => match?.text ? `“${match.text}”` : '')
+      .filter(Boolean)
+      .join('; ');
+    if (dp[key]) return `${label}: detected${excerpts ? ` — ${excerpts}` : ''}`;
+    return `${label}: not detected`;
+  });
+  const availability = Array.isArray(dp.evidence?.availabilityContext)
+    ? dp.evidence.availabilityContext.map(match => match?.text).filter(Boolean).join('; ')
+    : '';
+  if (availability) lines.push(`Availability context: ${availability}`);
+  return lines.join('\n');
 }
 
 async function handleGetSocraticNudge(payload) {
   const { title, price, categoryBaselinePrice, luxuryMultiplier } = payload;
   const config = getRuntimeConfig();
-  const storage = await chrome.storage.local.get(['hourlyWage', 'savingsGoal', 'geminiApiKey']);
+  const storage = await chrome.storage.local.get(['hourlyWage', 'savingsGoal']);
   
   const hourlyWage = Number(storage.hourlyWage) || config.userDefaults.hourlyWage || 30;
   const savingsGoal = storage.savingsGoal || config.userDefaults.savingsGoal;
-  const apiKey = storage.geminiApiKey || config.gemini.apiKey || '';
+  const apiKey = config.gemini.apiKey || '';
 
   const effectiveGeminiConfig = {
     ...config.gemini,
@@ -326,112 +418,43 @@ async function handleGetSocraticNudge(payload) {
 
 async function handleSaveToVault(item) {
   const config = getRuntimeConfig();
-  const storage = await chrome.storage.local.get(['cooldownDurationSeconds', 'vault']);
+  const storage = await chrome.storage.local.get('cooldownDurationSeconds');
   const cooldownSecs = storage.cooldownDurationSeconds !== undefined
     ? Number(storage.cooldownDurationSeconds)
     : (config.vault?.cooldownDurationSeconds || (48 * 60 * 60));
-  const cooldownMs = cooldownSecs * 1000;
-  const rawVault = Array.isArray(storage.vault) ? storage.vault : [];
-  const vault = deduplicateVault(rawVault);
-  const now = Date.now();
-
-  // Deduplication check: check if this product is already in the vault
-  const existingIndex = vault.findIndex(v => areSameProduct(v, item));
-
-  let savedItem;
-  if (existingIndex >= 0) {
-    const existing = vault[existingIndex];
-    savedItem = {
-      ...existing,
-      price: item.price !== undefined ? item.price : existing.price,
-      hoursOfWork: item.hoursOfWork || existing.hoursOfWork,
-      irsScore: item.irsScore || existing.irsScore,
-      imageUrl: item.imageUrl || existing.imageUrl,
-      url: item.url || existing.url,
-      expiresAt: now + cooldownMs,
-      cooldownDurationSeconds: cooldownSecs,
-      status: 'FROZEN'
-    };
-    vault.splice(existingIndex, 1);
-    vault.unshift(savedItem);
-  } else {
-    savedItem = {
-      id: `item_${now}_${Math.random().toString(36).substr(2, 6)}`,
-      title: item.title,
-      price: item.price,
-      url: item.url,
-      imageUrl: item.imageUrl || '',
-      hoursOfWork: item.hoursOfWork,
-      irsScore: item.irsScore,
-      createdAt: now,
-      expiresAt: now + cooldownMs,
-      cooldownDurationSeconds: cooldownSecs,
-      status: 'FROZEN'
-    };
-    vault.unshift(savedItem);
-  }
-
-  await chrome.storage.local.set({ vault });
+  const state = await loadLifecycleState();
+  const savedItem = lifecycle().putOnIce(state, item, { cooldownDurationSeconds: cooldownSecs });
+  await saveLifecycleState(state);
   return { success: true, item: savedItem };
 }
 
 async function handleGetVaultData() {
   const config = getRuntimeConfig();
-  const data = await chrome.storage.local.get(['vault', 'hourlyWage', 'savingsGoal', 'geminiApiKey', 'cooldownDurationSeconds']);
-  const rawVault = Array.isArray(data.vault) ? data.vault : [];
-  const vault = deduplicateVault(rawVault);
-
-  // Auto-prune existing duplicates in storage
-  if (vault.length !== rawVault.length) {
-    await chrome.storage.local.set({ vault });
-  }
-
-  let savedAmount = 0;
-  let savedHours = 0;
-  let savedCount = 0;
-
-  let pendingIceAmount = 0;
-  let pendingIceHours = 0;
-  let pendingIceCount = 0;
-
-  let unlockedAmount = 0;
-  let unlockedHours = 0;
-  let unlockedCount = 0;
-
-  vault.forEach(item => {
-    const price = Number(item.price) || 0;
-    const hours = Number(item.hoursOfWork) || 0;
-    if (item.status === 'ARCHIVED_SAVED') {
-      savedAmount += price;
-      savedHours += hours;
-      savedCount++;
-    } else if (item.status === 'UNLOCKED') {
-      unlockedAmount += price;
-      unlockedHours += hours;
-      unlockedCount++;
-    } else { // FROZEN / pending
-      pendingIceAmount += price;
-      pendingIceHours += hours;
-      pendingIceCount++;
-    }
-  });
+  const data = await chrome.storage.local.get(['hourlyWage', 'savingsGoal', 'cooldownDurationSeconds']);
+  const state = await loadLifecycleState();
+  const { activeItems, archiveItems, purchaseHistory } = lifecycle().getCollections(state);
+  const sum = (items, key) => items.reduce((total, item) => total + (Number(item.snapshot?.[key]) || 0), 0);
 
   return {
-    vault,
-    savedAmount: savedAmount.toFixed(2),
-    savedHours: savedHours.toFixed(1),
-    savedCount,
-    pendingIceAmount: pendingIceAmount.toFixed(2),
-    pendingIceHours: pendingIceHours.toFixed(1),
-    pendingIceCount,
-    unlockedAmount: unlockedAmount.toFixed(2),
-    unlockedHours: unlockedHours.toFixed(1),
-    unlockedCount,
-    totalSaved: savedAmount.toFixed(2),
-    totalHours: savedHours.toFixed(1),
+    schemaVersion: state.schemaVersion,
+    items: state.items,
+    events: state.events,
+    activeItems,
+    archiveItems,
+    purchaseHistory,
+    // Kept temporarily for the existing popup's active-vault semantics.
+    vault: activeItems,
+    archiveAmount: sum(archiveItems, 'price').toFixed(2),
+    archiveHours: sum(archiveItems, 'hoursOfWork').toFixed(1),
+    archiveCount: archiveItems.length,
+    pendingIceAmount: sum(activeItems, 'price').toFixed(2),
+    pendingIceHours: sum(activeItems, 'hoursOfWork').toFixed(1),
+    pendingIceCount: activeItems.length,
+    purchaseAmount: sum(purchaseHistory, 'price').toFixed(2),
+    purchaseHours: sum(purchaseHistory, 'hoursOfWork').toFixed(1),
+    purchaseCount: purchaseHistory.length,
     hourlyWage: data.hourlyWage || config.userDefaults.hourlyWage,
     savingsGoal: data.savingsGoal || config.userDefaults.savingsGoal,
-    hasApiKey: Boolean(data.geminiApiKey || config.gemini.apiKey),
     cooldownDurationSeconds: data.cooldownDurationSeconds !== undefined
       ? Number(data.cooldownDurationSeconds)
       : (config.vault?.cooldownDurationSeconds || (48 * 60 * 60))
@@ -440,19 +463,74 @@ async function handleGetVaultData() {
 
 async function handleUpdateVaultItem(payload) {
   const { id, status } = payload;
-  const { vault = [] } = await chrome.storage.local.get('vault');
-  const updatedVault = vault.map(item => {
-    if (item.id === id) {
-      return { ...item, status };
-    }
-    return item;
-  });
+  if (status === 'ARCHIVED_SAVED') return handleArchiveItem({ id });
+  if (status === 'UNLOCKED') return handleContinueToPurchase({ id });
+  throw new Error('Unsupported legacy vault status update.');
+}
 
-  await chrome.storage.local.set({ vault: updatedVault });
-  return { success: true };
+async function handleArchiveItem(payload) {
+  const state = await loadLifecycleState();
+  const item = lifecycle().archiveItem(state, payload?.id, { reason: 'USER_ARCHIVED' });
+  await saveLifecycleState(state);
+  return { success: true, item };
+}
+
+async function handleCancelPutOnIce(payload) {
+  const state = await loadLifecycleState();
+  const item = lifecycle().cancelPutOnIce(state, payload?.id, { reason: 'USER_CANCELLED' });
+  await saveLifecycleState(state);
+  return { success: true, item };
+}
+
+async function handleContinueToPurchase(payload) {
+  const state = await loadLifecycleState();
+  const item = lifecycle().continueToPurchase(state, payload?.id);
+  await saveLifecycleState(state);
+  return { success: true, item };
+}
+
+async function handleReiceItem(payload) {
+  const config = getRuntimeConfig();
+  const storage = await chrome.storage.local.get('cooldownDurationSeconds');
+  const cooldownDurationSeconds = storage.cooldownDurationSeconds !== undefined
+    ? Number(storage.cooldownDurationSeconds)
+    : (config.vault?.cooldownDurationSeconds || (48 * 60 * 60));
+  const state = await loadLifecycleState();
+  const existing = lifecycle().getItemById(state, payload?.id);
+  if (!existing) throw new Error('Item not found.');
+  if (existing.location === lifecycle().COLLECTION.PURCHASE_HISTORY) {
+    throw new Error('Purchased items cannot be put back on ice.');
+  }
+
+  const item = lifecycle().putOnIce(state, {
+    ...existing.product,
+    ...existing.snapshot
+  }, { cooldownDurationSeconds, reason: 'REICED_FROM_ARCHIVE' });
+  await saveLifecycleState(state);
+  return { success: true, item };
+}
+
+async function handleRecordPurchaseConfirmation(payload) {
+  const purchases = Array.isArray(payload?.purchases) ? payload.purchases : [payload];
+  const confirmationId = typeof payload?.confirmationId === 'string' ? payload.confirmationId : '';
+  const source = typeof payload?.source === 'string' ? payload.source : 'AMAZON_ORDER_CONFIRMATION';
+  const state = await loadLifecycleState();
+  const recorded = [];
+
+  for (const purchase of purchases) {
+    if (!purchase || (!purchase.title && !purchase.url && !purchase.asin && !purchase.productId)) continue;
+    recorded.push(lifecycle().recordPurchase(state, purchase, {
+      source,
+      confirmationId
+    }));
+  }
+
+  if (recorded.length > 0) await saveLifecycleState(state);
+  return { success: true, recorded };
 }
 
 async function handleClearVault() {
-  await chrome.storage.local.set({ vault: [] });
+  await chrome.storage.local.set({ [LIFECYCLE_STORAGE_KEY]: lifecycle().createEmptyState() });
+  await chrome.storage.local.remove(LEGACY_VAULT_STORAGE_KEY);
   return { success: true };
 }

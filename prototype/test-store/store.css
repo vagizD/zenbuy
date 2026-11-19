@@ -1,0 +1,45 @@
+:root {
+  color: #17213a;
+  background: #f6f7fb;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; padding: 32px 16px 56px; }
+.store-shell { max-width: 900px; margin: 0 auto; }
+.store-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid #e1e6f0; }
+.store-brand { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; }
+.store-brand span { color: #5a6fd8; }
+.store-caption { margin-top: 3px; color: #63708b; font-size: 13px; }
+.store-tag { border: 1px solid #cad5ff; border-radius: 999px; padding: 6px 10px; color: #4456b7; background: #f1f4ff; font-size: 12px; font-weight: 700; }
+.scenario-panel, .store-card { border: 1px solid #e1e6f0; border-radius: 18px; background: #fff; box-shadow: 0 12px 32px rgba(31, 45, 80, 0.05); }
+.scenario-panel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 18px; margin-bottom: 24px; }
+.control { display: grid; gap: 6px; }
+.control label, .control-title { color: #64708a; font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+select { width: 100%; border: 1px solid #ccd5e5; border-radius: 9px; padding: 9px 10px; color: #17213a; background: #fff; font: inherit; font-size: 13px; }
+.toggle-row { display: flex; align-items: center; gap: 7px; color: #394865 !important; font-size: 13px !important; font-weight: 500 !important; letter-spacing: normal !important; text-transform: none !important; }
+.product-layout { display: grid; grid-template-columns: .86fr 1.14fr; gap: 34px; padding: 30px; }
+.product-image { min-height: 310px; display: grid; place-items: center; border-radius: 13px; color: #65738e; background: linear-gradient(145deg, #edf1ff, #f8f9fd); border: 1px solid #e1e6f0; font-size: 74px; }
+.product-category { color: #667494; font-size: 12px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.product-title { margin: 9px 0 13px; color: #17213a; font-size: 27px; line-height: 1.18; letter-spacing: -.03em; }
+.product-description { color: #5d6a82; font-size: 14px; line-height: 1.55; }
+.product-price { display: block; margin: 18px 0 9px; color: #17213a; font-size: 30px; font-weight: 800; letter-spacing: -.04em; }
+.signal-row { margin: 0 0 18px; color: #63708b; font-size: 12px; }
+.urgency-banner { display: block; margin: 8px 0; padding: 9px 11px; color: #9a371f; border: 1px solid #ffd1c7; border-radius: 9px; background: #fff6f3; font-size: 13px; font-weight: 650; }
+.urgency-banner.hidden { display: none; }
+.cart-actions { display: grid; gap: 9px; margin-top: 22px; }
+button, .button-link { width: 100%; padding: 12px 16px; border: 0; border-radius: 10px; cursor: pointer; text-align: center; font: inherit; font-size: 14px; font-weight: 780; text-decoration: none; }
+.btn-cart { color: #fff; background: #495ed0; box-shadow: 0 8px 16px rgba(73, 94, 208, .18); }
+.btn-buy { color: #26345d; background: #eff2ff; border: 1px solid #cdd5ff; }
+.btn-cart:hover { background: #4053c2; }
+.btn-buy:hover { background: #e7ebff; }
+.page-note { margin: 16px 0 0; color: #77839b; font-size: 12px; line-height: 1.5; }
+.status-card { max-width: 620px; margin: 54px auto; padding: 34px; text-align: center; }
+.status-icon { display: grid; width: 68px; height: 68px; margin: 0 auto 18px; place-items: center; border-radius: 50%; color: #38724c; background: #e8f8ed; font-size: 30px; }
+.status-card h1 { margin: 0 0 10px; font-size: 28px; letter-spacing: -.03em; }
+.status-card p { margin: 0 auto 24px; max-width: 460px; color: #66738c; line-height: 1.55; }
+.order-item { display: flex; justify-content: space-between; gap: 12px; margin: 22px 0; padding: 14px; border: 1px solid #e1e6f0; border-radius: 11px; text-align: left; }
+.order-item-title { font-weight: 760; }
+.order-item-price { color: #5b6c9e; font-weight: 700; }
+.back-link { display: inline-block; color: #4359c5; font-weight: 750; text-decoration: none; }
+@media (max-width: 700px) { .scenario-panel, .product-layout { grid-template-columns: 1fr; } .product-layout { gap: 20px; padding: 20px; } .product-image { min-height: 180px; } .store-header { align-items: flex-start; flex-direction: column; } }

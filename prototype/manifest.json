@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ZenBuy",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "Smart Wishlist and Impulse Shopping Interceptor",
   "permissions": [
     "storage",
@@ -31,6 +31,7 @@
       "js": [
         "config/config.js",
         "engine/irs.js",
+        "adapters/contract.js",
         "adapters/amazon.js",
         "adapters/sandbox.js",
         "adapters/fallback.js",

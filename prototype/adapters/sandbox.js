@@ -1,70 +1,121 @@
 /**
- * ZenBuy Sandbox Store Platform Adapter
- * Handles scraping, button injection, and urgency detection for the test store.
+ * ZenBuy deterministic local-store adapter.
+ *
+ * The sandbox uses the same adapter surface as a retailer: product scraping,
+ * purchase controls, scarcity detection, and an order-confirmation signal.
+ * That lets its atomic operations be swapped for Amazon without rewriting
+ * lifecycle or content-script behavior.
  */
 
 var SandboxAdapter = {
   name: 'sandbox',
 
   matches(loc) {
-    const path = (loc && loc.pathname) || (window.location && window.location.pathname) || '';
-    const host = (loc && loc.hostname) || (window.location && window.location.hostname) || '';
-    return path.includes('test-store') || document.querySelector('[data-zenbuy-title]') !== null;
+    const documentAvailable = typeof document !== 'undefined';
+    const platform = documentAvailable
+      ? document.querySelector('[data-zenbuy-platform="sandbox"]')
+      : null;
+    const path = (loc && loc.pathname) || '';
+    return Boolean(platform) || /\/test-store\//.test(path);
+  },
+
+  getPageKind() {
+    const page = document.querySelector('[data-zenbuy-page]')?.getAttribute('data-zenbuy-page');
+    if (page === 'product') return 'PRODUCT';
+    if (page === 'confirmation') return 'ORDER_CONFIRMATION';
+    return 'OTHER';
   },
 
   scrapeProduct() {
-    const testTitle = document.querySelector('[data-zenbuy-title]');
-    const testPrice = document.querySelector('[data-zenbuy-price]');
-    if (!testTitle || !testPrice) return null;
+    if (this.getPageKind() !== 'PRODUCT') return null;
 
-    const title = testTitle.innerText.trim();
-    const priceText = testPrice.innerText || testPrice.getAttribute('data-zenbuy-price') || '';
-    const match = priceText.replace(/,/g, '').match(/\$?([0-9]+\.?[0-9]*)/);
-    const price = match ? parseFloat(match[1]) : null;
+    const titleElement = document.querySelector('[data-zenbuy-title]');
+    const priceElement = document.querySelector('[data-zenbuy-price]');
+    if (!titleElement || !priceElement) return null;
+
+    const title = (titleElement.innerText || titleElement.textContent || '').trim();
+    const priceText = priceElement.innerText || priceElement.textContent || priceElement.getAttribute('data-zenbuy-price') || '';
+    const priceMatch = priceText.replace(/,/g, '').match(/\$?([0-9]+\.?[0-9]*)/);
+    const price = priceMatch ? parseFloat(priceMatch[1]) : null;
     const image = document.querySelector('[data-zenbuy-image]')?.src || '';
-    const category = document.querySelector('[data-zenbuy-category]')?.innerText || '';
+    const category = (document.querySelector('[data-zenbuy-category]')?.textContent || '').trim();
+    const productId = priceElement.getAttribute('data-zenbuy-product-id') ||
+      titleElement.getAttribute('data-zenbuy-product-id') || '';
 
-    return title && price ? { title, price, image, category } : null;
+    return title && Number.isFinite(price) ? {
+      title,
+      price,
+      image,
+      category,
+      productId,
+      url: window.location.href
+    } : null;
   },
 
   getPriceElement() {
     return document.querySelector('[data-zenbuy-price]');
   },
 
+  /**
+   * A confirmation is the only sandbox event that should enter purchase
+   * history. Cart pages and Buy Now buttons intentionally return null.
+   */
+  getPurchaseConfirmation() {
+    if (this.getPageKind() !== 'ORDER_CONFIRMATION') return null;
+
+    const confirmation = document.querySelector('[data-zenbuy-order-confirmation]');
+    const confirmationId = confirmation?.getAttribute('data-zenbuy-confirmation-id') || '';
+    if (!confirmation || !confirmationId) return null;
+
+    const purchases = Array.from(document.querySelectorAll('[data-zenbuy-purchased-item]'))
+      .map(element => {
+        const title = element.getAttribute('data-zenbuy-title') ||
+          element.querySelector('[data-zenbuy-purchased-title]')?.textContent || '';
+        const productId = element.getAttribute('data-zenbuy-product-id') || '';
+        const url = element.getAttribute('data-zenbuy-product-url') || '';
+        return { title: title.trim(), productId, url };
+      })
+      .filter(purchase => purchase.title || purchase.productId || purchase.url);
+
+    return purchases.length ? {
+      confirmationId,
+      source: 'SANDBOX_ORDER_CONFIRMATION',
+      purchases
+    } : null;
+  },
+
   getCartButtons() {
     const selectors = [
       '.zenbuy-add-to-cart',
       '[data-action="add-to-cart"]',
-      '#btn-add-to-cart'
+      '#btn-add-to-cart',
+      '[data-action="buy-now"]'
     ];
     return Array.from(document.querySelectorAll(selectors.join(',')));
   },
 
   injectIceButton(cartButton, { label, onClick }) {
-    if (document.querySelector('.zenbuy-sandbox-ice-btn')) return null;
+    const existing = document.querySelector('.zenbuy-sandbox-ice-btn');
+    if (existing) return existing;
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'zenbuy-ice-btn zenbuy-sandbox-ice-btn';
-    btn.textContent = label;
-    btn.style.width = '100%';
-    btn.style.margin = '8px 0';
-    btn.style.boxShadow = '0 2px 4px rgba(15, 23, 42, 0.08)';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'zenbuy-ice-btn zenbuy-sandbox-ice-btn';
+    button.textContent = label;
+    button.style.width = '100%';
+    button.style.margin = '8px 0';
+    button.style.boxShadow = '0 2px 4px rgba(15, 23, 42, 0.08)';
+    button.addEventListener('click', onClick);
 
-    btn.addEventListener('click', onClick);
-
-    if (cartButton && cartButton.parentElement) {
-      cartButton.parentElement.insertBefore(btn, cartButton.nextSibling);
+    if (cartButton?.parentElement) {
+      cartButton.parentElement.insertBefore(button, cartButton.nextSibling);
+      return button;
     }
-
-    return btn;
+    return null;
   },
 
   getScarcityElements() {
-    const elements = [];
-    const banner = document.querySelector('.urgency-banner, #banner-urgency');
-    if (banner) elements.push(banner);
-    return elements;
+    return Array.from(document.querySelectorAll('.urgency-banner, #banner-urgency, #banner-stock'));
   }
 };
 

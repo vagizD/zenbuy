@@ -1,11 +1,11 @@
 /**
- * ZenBuy Popup Logic
+ * ZenBuy Vault popup.
+ * The popup is a local view over the lifecycle service in background.js.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
   const wageInput = document.getElementById('hourly-wage');
   const goalInput = document.getElementById('savings-goal');
-  const keyInput = document.getElementById('gemini-key');
   const cooldownSelect = document.getElementById('cooldown-duration');
   const saveBtn = document.getElementById('save-settings');
   const statusMsg = document.getElementById('status-msg');
@@ -20,259 +20,257 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statUnlockedCount = document.getElementById('stat-unlocked-count');
   const vaultTitle = document.getElementById('vault-title');
   const vaultCount = document.getElementById('vault-count');
-  const vaultList = document.getElementById('vault-list');
+  const archiveCount = document.getElementById('archive-count');
+  const purchaseCount = document.getElementById('purchase-count');
+  const storageMenu = document.getElementById('storage-menu');
+  const storageDetail = document.getElementById('storage-detail');
+  const storageDetailKicker = document.getElementById('storage-detail-kicker');
+  const storageDetailName = document.getElementById('storage-detail-name');
+  const storageDetailCount = document.getElementById('storage-detail-count');
+  const storageDetailList = document.getElementById('storage-detail-list');
+  const storageBack = document.getElementById('storage-back');
+  const storageButtons = document.querySelectorAll('[data-storage]');
+  let selectedStorage = null;
+  let collections = { vault: [], archive: [], purchase: [] };
+  let itemsById = new Map();
 
-  function formatDuration(seconds) {
-    if (!seconds || seconds <= 0) return '48h';
-    if (seconds < 60) return `${seconds}s`;
-    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-    return `${Math.round(seconds / 3600)}h`;
+  function formatRemaining(expiresAt) {
+    const remainingMs = Math.max(0, Number(expiresAt || 0) - Date.now());
+    const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+    const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((remainingMs % (1000 * 60)) / 1000);
+    if (hours > 0) return `${hours}h ${minutes}m remaining`;
+    if (minutes > 0) return `${minutes}m ${seconds}s remaining`;
+    return `${seconds}s remaining`;
   }
 
-  function updateMetricsDisplay(data) {
-    if (!data) return;
-    if (statSaved) statSaved.textContent = `$${data.savedAmount || '0.00'}`;
-    if (statHours) statHours.textContent = `${data.savedHours || '0.0'}h labor saved`;
-    if (statIce) statIce.textContent = `$${data.pendingIceAmount || '0.00'}`;
-    if (statIceCount) statIceCount.textContent = `${data.pendingIceCount || 0} item${data.pendingIceCount === 1 ? '' : 's'} cooling`;
-    if (statUnlocked) statUnlocked.textContent = `$${data.unlockedAmount || '0.00'}`;
-    if (statUnlockedCount) statUnlockedCount.textContent = `${data.unlockedCount || 0} deliberate`;
+  function countLabel(count) {
+    return `${count} item${count === 1 ? '' : 's'}`;
   }
 
-  // Load state from background
-  const data = await chrome.runtime.sendMessage({ type: 'GET_VAULT_DATA' });
+  function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, character => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[character]);
+  }
 
-  if (data) {
-    updateMetricsDisplay(data);
+  function itemMeta(item) {
+    const price = Number(item.snapshot?.price || 0).toFixed(2);
+    const hours = Number(item.snapshot?.hoursOfWork || 0).toFixed(1);
+    return `$${price} · ${hours}h work time`;
+  }
+
+  function emptyState(message) {
+    return `<div class="empty-state"><span class="empty-icon">✦</span>${message}</div>`;
+  }
+
+  function itemCard(item, kind) {
+    const product = item.product || {};
+    const title = escapeHtml(product.title || 'Untitled item');
+    const id = escapeHtml(item.id);
+
+    if (kind === 'active') {
+      return `
+        <article class="vault-item" data-id="${id}">
+          <div class="vault-item-header">
+            <div class="vault-item-title">${title}</div>
+            <span class="status-badge badge-frozen">On ice</span>
+          </div>
+          <div class="vault-item-meta"><span>${itemMeta(item)}</span><span>${formatRemaining(item.poi?.expiresAt)}</span></div>
+          <div class="vault-item-actions">
+            <button type="button" class="btn-item btn-cancel-poi" data-action="cancel-poi">Cancel Put on Ice</button>
+          </div>
+        </article>`;
+    }
+
+    if (kind === 'archive') {
+      const isExpired = item.poi?.state === 'POI_EXPIRED';
+      const statusText = isExpired ? 'Cooldown complete' : 'Set aside';
+      return `
+        <article class="vault-item" data-id="${id}">
+          <div class="vault-item-header">
+            <div class="vault-item-title">${title}</div>
+            <span class="status-badge badge-ready">${statusText}</span>
+          </div>
+          <div class="vault-item-meta"><span>${itemMeta(item)}</span><span>Price search: later</span></div>
+          <div class="vault-item-actions">
+            <button type="button" class="btn-item btn-archive" data-action="open-product">Product page</button>
+          </div>
+        </article>`;
+    }
+
+    const date = item.purchase?.observedAt ? new Date(item.purchase.observedAt).toLocaleDateString() : 'Confirmed';
+    return `
+      <article class="vault-item" data-id="${id}">
+        <div class="vault-item-header">
+          <div class="vault-item-title">${title}</div>
+          <span class="status-badge badge-unlocked">Purchased</span>
+        </div>
+        <div class="vault-item-meta"><span>${itemMeta(item)}</span><span>${escapeHtml(date)}</span></div>
+      </article>`;
+  }
+
+  function renderCollection(list, items, kind, emptyMessage) {
+    list.innerHTML = items.length ? items.map(item => itemCard(item, kind)).join('') : emptyState(emptyMessage);
+  }
+
+  function attachItemActions() {
+    document.querySelectorAll('[data-action="cancel-poi"]').forEach(button => {
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        await chrome.runtime.sendMessage({
+          type: 'CANCEL_PUT_ON_ICE',
+          payload: { id: button.closest('[data-id]').dataset.id }
+        });
+        await refresh();
+      });
+    });
+
+    document.querySelectorAll('[data-action="open-product"]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const id = button.closest('[data-id]').dataset.id;
+        const url = itemsById.get(id)?.product?.url;
+        if (url) await chrome.tabs.create({ url });
+      });
+    });
+  }
+
+  function storageMeta(storage) {
+    const metadata = {
+      vault: {
+        kicker: 'Cooling off',
+        name: 'Vault',
+        kind: 'active',
+        emptyMessage: 'Nothing is on ice.'
+      },
+      archive: {
+        kicker: 'Decision archive',
+        name: 'Saved for later',
+        kind: 'archive',
+        emptyMessage: 'No saved decisions yet.'
+      },
+      purchase: {
+        kicker: 'Observed purchases',
+        name: 'Purchase history',
+        kind: 'purchase',
+        emptyMessage: 'No purchases yet.'
+      }
+    };
+    return metadata[storage];
+  }
+
+  function renderSelectedStorage() {
+    const detail = selectedStorage && storageMeta(selectedStorage);
+    const isDetailVisible = Boolean(detail);
+    storageMenu.classList.toggle('hidden', isDetailVisible);
+    storageMenu.setAttribute('aria-hidden', String(isDetailVisible));
+    storageDetail.classList.toggle('hidden', !isDetailVisible);
+
+    if (!detail) return;
+
+    const items = collections[selectedStorage] || [];
+    storageDetailKicker.textContent = detail.kicker;
+    storageDetailName.textContent = detail.name;
+    storageDetailCount.textContent = countLabel(items.length);
+    renderCollection(storageDetailList, items, detail.kind, detail.emptyMessage);
+    attachItemActions();
+  }
+
+  function render(data) {
+    const activeItems = data.activeItems || [];
+    const archiveItems = data.archiveItems || [];
+    const purchaseHistory = data.purchaseHistory || [];
+
+    statSaved.textContent = `$${data.archiveAmount || '0.00'}`;
+    statHours.textContent = `${data.archiveCount || 0} item${data.archiveCount === 1 ? '' : 's'} saved`;
+    statIce.textContent = `$${data.pendingIceAmount || '0.00'}`;
+    statIceCount.textContent = `${data.pendingIceCount || 0} item${data.pendingIceCount === 1 ? '' : 's'} cooling`;
+    statUnlocked.textContent = `$${data.purchaseAmount || '0.00'}`;
+    statUnlockedCount.textContent = `${data.purchaseCount || 0} confirmed`;
+
+    vaultCount.textContent = countLabel(activeItems.length);
+    archiveCount.textContent = countLabel(archiveItems.length);
+    purchaseCount.textContent = countLabel(purchaseHistory.length);
+    collections = { vault: activeItems, archive: archiveItems, purchase: purchaseHistory };
+    itemsById = new Map(
+      [...activeItems, ...archiveItems, ...purchaseHistory].map(item => [String(item.id), item])
+    );
+    renderSelectedStorage();
+  }
+
+  function applyPreferences(data) {
     wageInput.value = data.hourlyWage || 30;
     goalInput.value = data.savingsGoal || '';
-    if (data.hasApiKey) {
-      keyInput.placeholder = 'Key configured (enter new to replace)';
+    if (data.cooldownDurationSeconds === undefined) return;
+
+    // The Vault is a place, not a timer label. Individual cards show their
+    // own remaining cooldown where that information matters.
+    vaultTitle.textContent = 'Vault';
+    const selectedValue = String(data.cooldownDurationSeconds);
+    if (![...cooldownSelect.options].some(option => option.value === selectedValue)) {
+      const option = document.createElement('option');
+      option.value = selectedValue;
+      option.textContent = `${data.cooldownDurationSeconds}s (Custom)`;
+      cooldownSelect.appendChild(option);
     }
-
-    if (data.cooldownDurationSeconds !== undefined) {
-      if (vaultTitle) {
-        vaultTitle.textContent = `${formatDuration(data.cooldownDurationSeconds)} Vault`;
-      }
-      if (cooldownSelect) {
-        const valStr = String(data.cooldownDurationSeconds);
-        if (![...cooldownSelect.options].some(opt => opt.value === valStr)) {
-          const opt = document.createElement('option');
-          opt.value = valStr;
-          opt.textContent = `${data.cooldownDurationSeconds}s (Custom)`;
-          cooldownSelect.appendChild(opt);
-        }
-        cooldownSelect.value = valStr;
-      }
-    }
-
-    let currentVault = data.vault || [];
-    renderVault(currentVault);
-
-    // Live countdown update every second
-    setInterval(() => {
-      renderVault(currentVault);
-    }, 1000);
+    cooldownSelect.value = selectedValue;
   }
 
-  // Toggle settings panel
+  async function refresh() {
+    const data = await chrome.runtime.sendMessage({ type: 'GET_VAULT_DATA' });
+    if (!data || data.error) return;
+    applyPreferences(data);
+    render(data);
+  }
+
+  await refresh();
+
+  // Quietly reconciles a short test timer while the popup is open. Otherwise
+  // expiry happens on the next normal ZenBuy interaction, without alerts.
+  setInterval(refresh, 1000);
+
+  storageButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      selectedStorage = button.dataset.storage;
+      renderSelectedStorage();
+    });
+  });
+
+  storageBack.addEventListener('click', () => {
+    selectedStorage = null;
+    renderSelectedStorage();
+  });
+
   toggleBtn.addEventListener('click', () => {
     settingsPanel.classList.toggle('hidden');
+    toggleBtn.setAttribute('aria-expanded', String(!settingsPanel.classList.contains('hidden')));
   });
 
-  // Save settings
   saveBtn.addEventListener('click', async () => {
     const wage = parseFloat(wageInput.value) || 30;
-    const goal = goalInput.value.trim();
-    const key = keyInput.value.trim();
-    const cooldownSecs = cooldownSelect ? parseInt(cooldownSelect.value, 10) : undefined;
-
-    const updates = {
+    const cooldownDurationSeconds = parseInt(cooldownSelect.value, 10);
+    await chrome.storage.local.set({
       hourlyWage: wage,
-      savingsGoal: goal
-    };
-
-    if (key) {
-      updates.geminiApiKey = key;
-    }
-
-    if (cooldownSecs !== undefined && !isNaN(cooldownSecs)) {
-      updates.cooldownDurationSeconds = cooldownSecs;
-      if (vaultTitle) {
-        vaultTitle.textContent = `${formatDuration(cooldownSecs)} Vault`;
-      }
-    }
-
-    await chrome.storage.local.set(updates);
-
+      savingsGoal: goalInput.value.trim(),
+      cooldownDurationSeconds
+    });
     statusMsg.classList.remove('hidden');
-    setTimeout(() => {
-      statusMsg.classList.add('hidden');
-    }, 2000);
+    setTimeout(() => statusMsg.classList.add('hidden'), 2000);
+    await refresh();
   });
 
-  function renderVault(items) {
-    vaultCount.textContent = `${items.length} item${items.length === 1 ? '' : 's'}`;
-
-    if (!items.length) {
-      vaultList.innerHTML = '<div class="empty-state">No quarantined purchases yet.</div>';
-      return;
-    }
-
-    const now = Date.now();
-    vaultList.innerHTML = items.map(item => {
-      const remainingMs = Math.max(0, item.expiresAt - now);
-      const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
-      const remainingMins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-      const remainingSecs = Math.floor((remainingMs % (1000 * 60)) / 1000);
-      
-      let timeLabel = 'Cooldown complete';
-      if (remainingMs > 0) {
-        if (remainingHours > 0) {
-          timeLabel = `${remainingHours}h ${remainingMins}m remaining`;
-        } else if (remainingMins > 0) {
-          timeLabel = `${remainingMins}m ${remainingSecs}s remaining`;
-        } else {
-          timeLabel = `${remainingSecs}s remaining`;
-        }
-      }
-      const isArchived = item.status === 'ARCHIVED_SAVED';
-      const isUnlocked = item.status === 'UNLOCKED';
-
-      let statusBadge = '';
-      if (isArchived) {
-        statusBadge = '<span class="status-badge badge-saved">🏆 Impulse Averted</span>';
-      } else if (isUnlocked) {
-        statusBadge = '<span class="status-badge badge-unlocked">🔓 Unlocked</span>';
-      } else if (remainingMs > 0) {
-        statusBadge = '<span class="status-badge badge-frozen">❄️ On Ice</span>';
-      } else {
-        statusBadge = '<span class="status-badge badge-ready">Ready to Decide</span>';
-      }
-
-      return `
-        <div class="vault-item" data-id="${item.id}">
-          <div class="vault-item-header">
-            <div class="vault-item-title">${escapeHtml(item.title)}</div>
-            ${statusBadge}
-          </div>
-          <div class="vault-item-meta">
-            <span>$${Number(item.price).toFixed(2)} (${item.hoursOfWork}h labor)</span>
-            <span>${timeLabel}</span>
-          </div>
-          <div class="vault-item-actions">
-            ${isArchived ? `
-              <span class="btn-item btn-saved-pill">Permanently Saved ($${Number(item.price).toFixed(2)})</span>
-            ` : isUnlocked ? `
-              <button class="btn-item btn-archive" data-action="archive">Archive & Save Instead</button>
-              <a href="${escapeHtml(item.url || '#')}" target="_blank" class="btn-item btn-unlock">Open Deal Page</a>
-            ` : remainingMs > 0 ? `
-              <button class="btn-item btn-archive" data-action="archive">Archive & Save Now</button>
-              <button class="btn-item btn-locked" disabled title="Quarantined during cooldown">Locked (${timeLabel})</button>
-            ` : `
-              <button class="btn-item btn-archive" data-action="archive">Archive & Save</button>
-              <button class="btn-item btn-unlock" data-action="unlock" data-url="${escapeHtml(item.url || '#')}">Unlock Deal</button>
-            `}
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    // Attach click listeners for Archive
-    vaultList.querySelectorAll('[data-action="archive"]').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const itemEl = e.target.closest('.vault-item');
-        const id = itemEl.getAttribute('data-id');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
-
-        await chrome.runtime.sendMessage({
-          type: 'UPDATE_VAULT_ITEM',
-          payload: { id, status: 'ARCHIVED_SAVED' }
-        });
-
-        // Refresh data
-        const refreshed = await chrome.runtime.sendMessage({ type: 'GET_VAULT_DATA' });
-        updateMetricsDisplay(refreshed);
-        renderVault(refreshed.vault || []);
-      });
-    });
-
-    // Attach click listeners for Unlock
-    vaultList.querySelectorAll('[data-action="unlock"]').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const itemEl = e.target.closest('.vault-item');
-        const id = itemEl.getAttribute('data-id');
-        const targetUrl = btn.getAttribute('data-url');
-        btn.disabled = true;
-        btn.textContent = 'Unlocking...';
-
-        await chrome.runtime.sendMessage({
-          type: 'UPDATE_VAULT_ITEM',
-          payload: { id, status: 'UNLOCKED' }
-        });
-
-        // Refresh data
-        const refreshed = await chrome.runtime.sendMessage({ type: 'GET_VAULT_DATA' });
-        updateMetricsDisplay(refreshed);
-        renderVault(refreshed.vault || []);
-
-        if (targetUrl && targetUrl !== '#') {
-          chrome.tabs.create({ url: targetUrl });
-        }
-      });
-    });
-  }
-
-  // Clear Vault Handlers (Testing Utilities)
-  async function performClearVault(btn) {
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Clearing...';
-    }
-
-    await chrome.runtime.sendMessage({ type: 'CLEAR_VAULT' });
-    const refreshed = await chrome.runtime.sendMessage({ type: 'GET_VAULT_DATA' });
-    updateMetricsDisplay(refreshed);
-    renderVault([]);
-
-    if (btn) {
-      btn.textContent = '✅ Cleared!';
-      setTimeout(() => {
-        btn.disabled = false;
-        btn.textContent = btn.id === 'quick-clear-vault' ? 'Clear' : '🗑️ Clear Vault & Reset Items';
-      }, 1400);
-    }
-  }
-
   const clearBtn = document.getElementById('clear-vault-btn');
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      if (confirm('Clear all items from the vault and reset metrics?')) {
-        performClearVault(clearBtn);
-      }
-    });
-  }
-
-  const quickClearBtn = document.getElementById('quick-clear-vault');
-  if (quickClearBtn) {
-    quickClearBtn.addEventListener('click', () => {
-      if (confirm('Quick-clear all vault items?')) {
-        performClearVault(quickClearBtn);
-      }
-    });
-  }
-
-  function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>"']/g, function (m) {
-      return ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      })[m];
-    });
-  }
+  clearBtn.addEventListener('click', async () => {
+    if (!confirm('Clear every locally stored ZenBuy item, including archive and purchase history?')) return;
+    clearBtn.disabled = true;
+    clearBtn.textContent = 'Clearing…';
+    await chrome.runtime.sendMessage({ type: 'CLEAR_VAULT' });
+    await refresh();
+    clearBtn.disabled = false;
+    clearBtn.textContent = 'Clear all local ZenBuy data';
+  });
 });

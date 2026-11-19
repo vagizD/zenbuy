@@ -1,0 +1,13 @@
+{
+  "name": "zenbuy-prototype",
+  "private": true,
+  "scripts": {
+    "test:irs": "node --test tests/contracts/irs_engine_contract.test.js tests/engines/weighted_irs_v1.test.js",
+    "test:backend": "node --test tests/backend/vault_lifecycle.test.js tests/adapters/adapter_contract.test.js",
+    "test:sandbox": "node --test tests/sandbox/sandbox_adapter.browser.test.js tests/sandbox/extension_sandbox_e2e.browser.test.js",
+    "test": "npm run test:irs && npm run test:backend && npm run test:sandbox"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

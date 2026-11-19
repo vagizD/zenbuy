@@ -10,6 +10,10 @@ var FallbackAdapter = {
     return true; // Catch-all fallback
   },
 
+  getPageKind() {
+    return this.scrapeProduct() ? 'PRODUCT' : 'OTHER';
+  },
+
   scrapeProduct() {
     let title = '';
     let price = null;
@@ -61,7 +65,13 @@ var FallbackAdapter = {
       if (h1) title = h1.innerText.trim();
     }
 
-    return title && price ? { title, price, image, category } : null;
+    return title && price ? { title, price, image, category, url: window.location.href } : null;
+  },
+
+  getPurchaseConfirmation() {
+    // Generic pages have no trustworthy, reusable confirmation signal yet.
+    // A platform adapter must implement this before purchase history is enabled.
+    return null;
   },
 
   getPriceElement() {
@@ -75,7 +85,11 @@ var FallbackAdapter = {
       '.single_add_to_cart_button',
       '#add-to-cart',
       '.btn-add-to-cart',
-      '[data-action="add-to-cart"]'
+      '[data-action="add-to-cart"]',
+      '[data-action="buy-now"]',
+      '#buy-now',
+      '#buy-now-button',
+      'button[name="buy-now"]'
     ];
     return Array.from(document.querySelectorAll(selectors.join(',')));
   },

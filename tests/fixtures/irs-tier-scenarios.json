@@ -1,0 +1,371 @@
+{
+  "suite": "ZenBuy IRS tier contract scenarios",
+  "version": 1,
+  "notes": [
+    "These are the 30 labeled scenarios from zenbuy_scenarios.docx.",
+    "expectedTier is intentionally the only expected engine output. Numeric scores, thresholds, and actions belong to each engine implementation.",
+    "taxonomyRisk is a deterministic stand-in for a separately tested product taxonomy classifier; this tier suite never calls Gemini."
+  ],
+  "scenarios": [
+    {
+      "id": "T2-01",
+      "label": "Bedtime Instagram Impulse",
+      "expectedTier": "TIER_2",
+      "features": {
+        "product": { "title": "Yoshihiro 8-inch Damascus Gyuto Knife", "price": 180, "taxonomyRisk": 90 },
+        "financial": { "hourlyWage": 28, "amount": 180, "isBnplActive": false },
+        "interaction": { "source": "SOCIAL_AD", "dwellTimeSeconds": 22, "localHour": 2 },
+        "darkPatterns": ["deceptiveUrgency"],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T2-02",
+      "label": "Wardrobe Compulsion",
+      "expectedTier": "TIER_2",
+      "features": {
+        "product": { "title": "The North Face 1996 Nuptse Jacket", "price": 280, "taxonomyRisk": 85 },
+        "financial": { "hourlyWage": 32, "amount": 280, "isBnplActive": false },
+        "interaction": { "source": "SOCIAL_AD", "dwellTimeSeconds": 38, "localHour": 21 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 3, "windowDays": 60, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T2-03",
+      "label": "Deceptive Continuity Trap",
+      "expectedTier": "TIER_2",
+      "features": {
+        "product": { "title": "Hydra-Glow Peptide Firming Serum trial", "price": 4.95, "taxonomyRisk": 100 },
+        "financial": { "hourlyWage": 25, "amount": 89, "isBnplActive": false, "reason": "Hidden pre-checked recurring $89/month commitment" },
+        "interaction": { "source": "POPUP", "dwellTimeSeconds": 18, "localHour": 21 },
+        "darkPatterns": ["preselection"],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T2-04",
+      "label": "Gaming Pre-Order FOMO",
+      "expectedTier": "TIER_2",
+      "features": {
+        "product": { "title": "Elden Ring Collector's Edition Statue", "price": 249, "taxonomyRisk": 95 },
+        "financial": { "hourlyWage": 26, "amount": 249, "isBnplActive": true },
+        "interaction": { "source": "SOCIAL_LINK", "dwellTimeSeconds": 32, "localHour": 23 },
+        "darkPatterns": ["lowStockAmbiguity"],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T2-05",
+      "label": "Revenge Bedtime Fatigue",
+      "expectedTier": "TIER_2",
+      "features": {
+        "product": { "title": "Apple AirPods Max Over-Ear", "price": 540, "taxonomyRisk": 90 },
+        "financial": { "hourlyWage": 30, "amount": 540, "isBnplActive": true },
+        "interaction": { "source": "SOCIAL_AD", "dwellTimeSeconds": 28, "localHour": 1 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T2-06",
+      "label": "Midnight Fitness Guilt",
+      "expectedTier": "TIER_2",
+      "features": {
+        "product": { "title": "Hydrow Connected Smart Rower", "price": 1200, "taxonomyRisk": 75 },
+        "financial": { "hourlyWage": 35, "amount": 1200, "isBnplActive": true },
+        "interaction": { "source": "PAID_SEARCH", "dwellTimeSeconds": 40, "localHour": 21 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T2-07",
+      "label": "Fake Urgency Getaway Deal",
+      "expectedTier": "TIER_2",
+      "features": {
+        "product": { "title": "All-Inclusive 3-Night Spa Resort", "price": 450, "taxonomyRisk": 92 },
+        "financial": { "hourlyWage": 30, "amount": 450, "isBnplActive": false },
+        "interaction": { "source": "EMAIL", "dwellTimeSeconds": 35, "localHour": 20 },
+        "darkPatterns": ["deceptiveUrgency", "fabricatedSocialProof"],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T2-08",
+      "label": "Skincare Addiction Cluster",
+      "expectedTier": "TIER_2",
+      "features": {
+        "product": { "title": "Sunday Riley Good Genes Lactic Acid", "price": 95, "taxonomyRisk": 90 },
+        "financial": { "hourlyWage": 25, "amount": 95, "isBnplActive": false },
+        "interaction": { "source": "SOCIAL_AD", "dwellTimeSeconds": 25, "localHour": 22 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 4, "windowDays": 30, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T2-09",
+      "label": "Volume Trap BOGO",
+      "expectedTier": "TIER_2",
+      "features": {
+        "product": { "title": "5-Pack Hawaiian Linen Shirts", "price": 175, "taxonomyRisk": 75 },
+        "financial": { "hourlyWage": 25, "amount": 175, "isBnplActive": true },
+        "interaction": { "source": "SOCIAL_AD", "dwellTimeSeconds": 30, "localHour": 23 },
+        "darkPatterns": ["deceptiveUrgency"],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T2-10",
+      "label": "Accidental Duplicate Re-Buy",
+      "expectedTier": "TIER_2",
+      "features": {
+        "product": { "title": "SteelSeries Arctis Nova 7 Headset", "price": 120, "taxonomyRisk": 95 },
+        "financial": { "hourlyWage": 25, "amount": 120, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 15, "localHour": 22 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 1, "windowDays": 14, "isExactDuplicate": true }
+      }
+    },
+    {
+      "id": "T1-01",
+      "label": "Impulsive Cart Add-on",
+      "expectedTier": "TIER_1",
+      "features": {
+        "product": { "title": "Diptyque Baies Scented Candle 190g", "price": 42, "taxonomyRisk": 60 },
+        "financial": { "hourlyWage": 25, "amount": 42, "isBnplActive": false },
+        "interaction": { "source": "CHECKOUT_UPSELL", "dwellTimeSeconds": 12, "localHour": 20 },
+        "darkPatterns": ["lowStockAmbiguity"],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T1-02",
+      "label": "Weekend Camping Gear",
+      "expectedTier": "TIER_1",
+      "features": {
+        "product": { "title": "BioLite CampStove 2+ Wood Stove", "price": 149.95, "taxonomyRisk": 55 },
+        "financial": { "hourlyWage": 35, "amount": 149.95, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 110, "localHour": 19 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 1, "windowDays": 90, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T1-03",
+      "label": "Casual Apparel Browse",
+      "expectedTier": "TIER_1",
+      "features": {
+        "product": { "title": "Levi's Premium Trucker Denim Jacket", "price": 98, "taxonomyRisk": 55 },
+        "financial": { "hourlyWage": 28, "amount": 98, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 85, "localHour": 20 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 1, "windowDays": 90, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T1-04",
+      "label": "Specialty Coffee Kettle",
+      "expectedTier": "TIER_1",
+      "features": {
+        "product": { "title": "Fellow Stagg EKG Electric Gooseneck", "price": 165, "taxonomyRisk": 60 },
+        "financial": { "hourlyWage": 40, "amount": 165, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 140, "localHour": 18 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 1, "windowDays": 90, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T1-05",
+      "label": "Smart Home Lighting",
+      "expectedTier": "TIER_1",
+      "features": {
+        "product": { "title": "Philips Hue 3-Bulb Starter Kit", "price": 135, "taxonomyRisk": 60 },
+        "financial": { "hourlyWage": 32, "amount": 135, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 95, "localHour": 21 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 1, "windowDays": 90, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T1-06",
+      "label": "Chef Knife Upgrade",
+      "expectedTier": "TIER_1",
+      "features": {
+        "product": { "title": "Miyabi Artisan 8-inch Japanese Chef Knife", "price": 199.95, "taxonomyRisk": 65 },
+        "financial": { "hourlyWage": 45, "amount": 199.95, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 190, "localHour": 18 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 90, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T1-07",
+      "label": "Designer Sunglasses Sale",
+      "expectedTier": "TIER_1",
+      "features": {
+        "product": { "title": "Ray-Ban Classic Polarized Wayfarer", "price": 171, "taxonomyRisk": 70 },
+        "financial": { "hourlyWage": 30, "amount": 171, "isBnplActive": false },
+        "interaction": { "source": "EMAIL", "dwellTimeSeconds": 75, "localHour": 19 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 1, "windowDays": 90, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T1-08",
+      "label": "Custom Artisan Keycaps",
+      "expectedTier": "TIER_1",
+      "features": {
+        "product": { "title": "Drop + Matt3o MT3 Keycap Set", "price": 120, "taxonomyRisk": 65 },
+        "financial": { "hourlyWage": 30, "amount": 120, "isBnplActive": false },
+        "interaction": { "source": "COMMUNITY", "dwellTimeSeconds": 60, "localHour": 20 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 1, "windowDays": 90, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T1-09",
+      "label": "Ultrasonic Aroma Diffuser",
+      "expectedTier": "TIER_1",
+      "features": {
+        "product": { "title": "Vitruvi Stone Essential Oil Diffuser", "price": 123, "taxonomyRisk": 55 },
+        "financial": { "hourlyWage": 28, "amount": 123, "isBnplActive": false },
+        "interaction": { "source": "ORGANIC_BLOG", "dwellTimeSeconds": 65, "localHour": 21 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 90, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T1-10",
+      "label": "Board Game Expansion",
+      "expectedTier": "TIER_1",
+      "features": {
+        "product": { "title": "Wingspan Asia Standalone Expansion", "price": 45, "taxonomyRisk": 50 },
+        "financial": { "hourlyWage": 32, "amount": 45, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 80, "localHour": 21 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 1, "windowDays": 90, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T0-01",
+      "label": "Emergency Baby Staple",
+      "expectedTier": "TIER_0",
+      "features": {
+        "product": { "title": "Enfamil Infant Formula 28oz", "price": 42, "taxonomyRisk": 0, "stapleImmunity": true },
+        "financial": { "hourlyWage": 20, "amount": 42, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 65, "localHour": 14 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T0-02",
+      "label": "Routine Coffee Restock",
+      "expectedTier": "TIER_0",
+      "features": {
+        "product": { "title": "Lavazza Espresso Whole Bean 2.2lb", "price": 22, "taxonomyRisk": 0, "stapleImmunity": true },
+        "financial": { "hourlyWage": 25, "amount": 22, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_BOOKMARK", "dwellTimeSeconds": 45, "localHour": 11 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T0-03",
+      "label": "Planned Cable Replacement",
+      "expectedTier": "TIER_0",
+      "features": {
+        "product": { "title": "Anker USB-C to USB-C 6ft Braided Cable", "price": 16.99, "taxonomyRisk": 20 },
+        "financial": { "hourlyWage": 25, "amount": 16.99, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 40, "localHour": 16 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 90, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T0-04",
+      "label": "Researched Work Monitor",
+      "expectedTier": "TIER_0",
+      "features": {
+        "product": { "title": "Dell UltraSharp 34-inch Curved USB-C Hub", "price": 550, "taxonomyRisk": 0 },
+        "financial": { "hourlyWage": 45, "amount": 550, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 2100, "localHour": 11, "openTabs": 4, "reviewSeconds": 450 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T0-05",
+      "label": "Running Shoe Renewal",
+      "expectedTier": "TIER_0",
+      "features": {
+        "product": { "title": "Nike Air Zoom Pegasus 40", "price": 130, "taxonomyRisk": 10 },
+        "financial": { "hourlyWage": 30, "amount": 130, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 480, "localHour": 15, "openTabs": 3, "reviewSeconds": 120 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T0-06",
+      "label": "Prescription Eyewear",
+      "expectedTier": "TIER_0",
+      "features": {
+        "product": { "title": "Zenni Optical Prescription Glasses", "price": 35, "taxonomyRisk": 0, "medicalNecessity": true },
+        "financial": { "hourlyWage": 28, "amount": 35, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 180, "localHour": 13 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T0-07",
+      "label": "Cleaning Consumables",
+      "expectedTier": "TIER_0",
+      "features": {
+        "product": { "title": "Dawn Dish Soap Refill 70oz + Sponges", "price": 15.49, "taxonomyRisk": 0, "stapleImmunity": true },
+        "financial": { "hourlyWage": 22, "amount": 15.49, "isBnplActive": false },
+        "interaction": { "source": "GROCERY_LIST", "dwellTimeSeconds": 30, "localHour": 12 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T0-08",
+      "label": "Ergonomic Desk Riser",
+      "expectedTier": "TIER_0",
+      "features": {
+        "product": { "title": "Rain Design mStand Aluminum Laptop Riser", "price": 42, "taxonomyRisk": 20 },
+        "financial": { "hourlyWage": 38, "amount": 42, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 240, "localHour": 10, "openTabs": 3, "reviewSeconds": 75 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T0-09",
+      "label": "Pet Nutrition Restock",
+      "expectedTier": "TIER_0",
+      "features": {
+        "product": { "title": "Purina Pro Plan Sensitive Stomach 30lb", "price": 68.99, "taxonomyRisk": 0, "stapleImmunity": true },
+        "financial": { "hourlyWage": 32, "amount": 68.99, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_BOOKMARK", "dwellTimeSeconds": 40, "localHour": 15 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    },
+    {
+      "id": "T0-10",
+      "label": "Technical Reference Book",
+      "expectedTier": "TIER_0",
+      "features": {
+        "product": { "title": "Designing Data-Intensive Applications", "price": 44.5, "taxonomyRisk": 20 },
+        "financial": { "hourlyWage": 45, "amount": 44.5, "isBnplActive": false },
+        "interaction": { "source": "DIRECT_SEARCH", "dwellTimeSeconds": 310, "localHour": 13, "openTabs": 3, "reviewSeconds": 80 },
+        "darkPatterns": [],
+        "purchaseHistory": { "priorSimilarPurchases": 0, "windowDays": 0, "isExactDuplicate": false }
+      }
+    }
+  ]
+}

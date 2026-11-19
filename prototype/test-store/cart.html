@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sandbox Cart · ZenBuy</title>
+  <link rel="stylesheet" href="store.css">
+  <script src="store.js" defer></script>
+  <script defer>document.addEventListener('DOMContentLoaded', () => ZenBuySandboxStore.renderCartPage());</script>
+</head>
+<body data-zenbuy-platform="sandbox" data-zenbuy-page="cart">
+  <main class="store-shell">
+    <header class="store-header">
+      <div><div class="store-brand">Zen<span>Buy</span> Sandbox Store</div><div class="store-caption">Cart is deliberately not purchase evidence</div></div>
+      <div class="store-tag">Step 2 of 3</div>
+    </header>
+    <section class="store-card status-card">
+      <div class="status-icon">🛒</div>
+      <h1>Sandbox cart</h1>
+      <div class="order-item"><span class="order-item-title" id="cart-product-title"></span><span class="order-item-price" id="cart-product-price"></span></div>
+      <button class="btn-cart" id="place-order-button" type="button">Place sandbox order</button>
+      <p class="page-note">ZenBuy must not add this item to Purchase History until the next confirmation page renders.</p>
+      <a class="back-link" id="back-to-product" href="index.html">← Return to product</a>
+    </section>
+  </main>
+</body>
+</html>
